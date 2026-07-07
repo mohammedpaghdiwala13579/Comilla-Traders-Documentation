@@ -30,4 +30,6 @@ export interface SavedDocument {
   poNumber?: string;
   rows: QuotationRow[];
   mergedRegions: MergedRegion[];
+  vatPercent?: number;
+  transportationFee?: number;
 }

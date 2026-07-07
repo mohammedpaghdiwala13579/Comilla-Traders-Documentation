@@ -37,7 +37,9 @@ export const generateExcelWorkbook = async (
   rows: QuotationRow[],
   mergedRegions: MergedRegion[],
   invoiceNo?: string,
-  poNumber?: string
+  poNumber?: string,
+  vatPercent?: number,
+  transportationFee?: number
 ): Promise<ExcelJS.Workbook> => {
   const workbook = new ExcelJS.Workbook();
   const sheetName = docType === "challan" ? "Challan" : docType === "invoice" ? "Invoice" : "Quotation";
@@ -432,57 +434,132 @@ export const generateExcelWorkbook = async (
   // Totals & Words block
   if (docType !== "challan") {
     const totalRow = currentRowNum;
-    worksheet.getRow(totalRow).height = 24;
+    const isInvoice = docType === "invoice";
+    const numTotalRows = isInvoice ? 4 : 1;
+    
+    // Set heights
+    for (let rOffset = 0; rOffset < numTotalRows; rOffset++) {
+      worksheet.getRow(totalRow + rOffset).height = 22;
+    }
 
-    // Word merge block (Cols A to D)
-    worksheet.mergeCells(`A${totalRow}:D${totalRow}`);
+    // Word merge block (Cols A to D) across all total rows
+    if (isInvoice) {
+      worksheet.mergeCells(`A${totalRow}:D${totalRow + 3}`);
+    } else {
+      worksheet.mergeCells(`A${totalRow}:D${totalRow}`);
+    }
+    
     const wordCell = worksheet.getCell(`A${totalRow}`);
     
-    // Formula to calculate sum dynamically so changes in excel will update totals & word descriptions
-    // To allow editability and accurate live word recalculations, we provide a formula link for total
-    const sumRange = `F17:F${totalRow - 1}`;
+    // Calculate final static grand total for Amount in Words
+    const subtotalValue = rows.reduce((sum, r) => sum + r.amount, 0);
+    const calculatedVat = isInvoice ? (subtotalValue * (vatPercent || 0)) / 100 : 0;
+    const finalGrandTotal = isInvoice ? (subtotalValue + calculatedVat + (transportationFee || 0)) : subtotalValue;
     
-    // Set static grand total in cells for printing, but keep it formula-driven
-    const totalValue = rows.reduce((sum, r) => sum + r.amount, 0);
-    const words = numberToWords(Math.round(totalValue));
+    const words = numberToWords(Math.round(finalGrandTotal));
     const wordsStr = words ? words.toUpperCase() : "ZERO TAKA ONLY";
     wordCell.value = `AMOUNT IN WORDS: ${wordsStr}`;
-    wordCell.font = { name: "Arial", size: 8, bold: true, italic: true, color: { argb: "000000" } };
-    wordCell.alignment = { vertical: "middle", horizontal: "left" };
+    wordCell.font = { name: "Arial", size: 8.5, bold: true, italic: true, color: { argb: "000000" } };
+    wordCell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
 
-    // Apply borders to word block
-    for (let c = 1; c <= 4; c++) {
-      const cell = worksheet.getCell(totalRow, c);
-      cell.border = {
-        top: { style: "medium", color: { argb: "000000" } },
-        bottom: { style: "medium", color: { argb: "000000" } },
-        left: c === 1 ? { style: "medium", color: { argb: "000000" } } : undefined,
-        right: c === 4 ? { style: "medium", color: { argb: "000000" } } : undefined
-      };
+    // Apply borders to the word block (spanning the rows)
+    for (let rOffset = 0; rOffset < numTotalRows; rOffset++) {
+      const rNum = totalRow + rOffset;
+      for (let c = 1; c <= 4; c++) {
+        const cell = worksheet.getCell(rNum, c);
+        cell.border = {
+          top: rOffset === 0 ? { style: "medium", color: { argb: "000000" } } : undefined,
+          bottom: rOffset === numTotalRows - 1 ? { style: "medium", color: { argb: "000000" } } : undefined,
+          left: c === 1 ? { style: "medium", color: { argb: "000000" } } : undefined,
+          right: c === 4 ? { style: "medium", color: { argb: "000000" } } : undefined
+        };
+      }
     }
 
-    // Set Total values
-    worksheet.getCell(`E${totalRow}`).value = "TOTAL";
-    worksheet.getCell(`E${totalRow}`).font = { name: "Arial", size: 9, bold: true };
-    worksheet.getCell(`E${totalRow}`).alignment = { vertical: "middle", horizontal: "right" };
+    const sumRange = `F17:F${totalRow - 1}`;
 
-    const valCell = worksheet.getCell(`F${totalRow}`);
-    valCell.value = { formula: `=SUM(${sumRange})` } as any;
-    valCell.font = { name: "Arial", size: 9, bold: true };
-    valCell.alignment = { vertical: "middle", horizontal: "right" };
-    valCell.numFmt = "#,##0.00";
+    if (isInvoice) {
+      // Row 1: SUBTOTAL
+      worksheet.getCell(`E${totalRow}`).value = "SUBTOTAL";
+      worksheet.getCell(`E${totalRow}`).font = { name: "Arial", size: 9, bold: true };
+      worksheet.getCell(`E${totalRow}`).alignment = { vertical: "middle", horizontal: "right" };
 
-    for (let c = 5; c <= 6; c++) {
-      const cell = worksheet.getCell(totalRow, c);
-      cell.border = {
-        top: { style: "medium", color: { argb: "000000" } },
-        bottom: { style: "medium", color: { argb: "000000" } },
-        left: c === 5 ? { style: "medium", color: { argb: "000000" } } : { style: "thin", color: { argb: "000000" } },
-        right: c === 6 ? { style: "medium", color: { argb: "000000" } } : { style: "thin", color: { argb: "000000" } }
-      };
+      const subtotalValCell = worksheet.getCell(`F${totalRow}`);
+      subtotalValCell.value = { formula: `=SUM(${sumRange})` } as any;
+      subtotalValCell.font = { name: "Arial", size: 9, bold: true };
+      subtotalValCell.alignment = { vertical: "middle", horizontal: "right" };
+      subtotalValCell.numFmt = "#,##0.00";
+
+      // Row 2: VAT
+      worksheet.getCell(`E${totalRow + 1}`).value = `VAT (${vatPercent || 0}%)`;
+      worksheet.getCell(`E${totalRow + 1}`).font = { name: "Arial", size: 9, bold: true };
+      worksheet.getCell(`E${totalRow + 1}`).alignment = { vertical: "middle", horizontal: "right" };
+
+      const vatValCell = worksheet.getCell(`F${totalRow + 1}`);
+      vatValCell.value = { formula: `=F${totalRow}*${(vatPercent || 0) / 100}` } as any;
+      vatValCell.font = { name: "Arial", size: 9, bold: true };
+      vatValCell.alignment = { vertical: "middle", horizontal: "right" };
+      vatValCell.numFmt = "#,##0.00";
+
+      // Row 3: TRANSPORTATION
+      worksheet.getCell(`E${totalRow + 2}`).value = "TRANSPORTATION FEE";
+      worksheet.getCell(`E${totalRow + 2}`).font = { name: "Arial", size: 9, bold: true };
+      worksheet.getCell(`E${totalRow + 2}`).alignment = { vertical: "middle", horizontal: "right" };
+
+      const transValCell = worksheet.getCell(`F${totalRow + 2}`);
+      transValCell.value = transportationFee || 0;
+      transValCell.font = { name: "Arial", size: 9, bold: true };
+      transValCell.alignment = { vertical: "middle", horizontal: "right" };
+      transValCell.numFmt = "#,##0.00";
+
+      // Row 4: GRAND TOTAL
+      worksheet.getCell(`E${totalRow + 3}`).value = "GRAND TOTAL";
+      worksheet.getCell(`E${totalRow + 3}`).font = { name: "Arial", size: 9.5, bold: true };
+      worksheet.getCell(`E${totalRow + 3}`).alignment = { vertical: "middle", horizontal: "right" };
+
+      const grandValCell = worksheet.getCell(`F${totalRow + 3}`);
+      grandValCell.value = { formula: `=F${totalRow}+F${totalRow + 1}+F${totalRow + 2}` } as any;
+      grandValCell.font = { name: "Arial", size: 10, bold: true };
+      grandValCell.alignment = { vertical: "middle", horizontal: "right" };
+      grandValCell.numFmt = "#,##0.00";
+
+      // Borders for all 4 right-side rows
+      for (let rOffset = 0; rOffset < numTotalRows; rOffset++) {
+        const rNum = totalRow + rOffset;
+        for (let c = 5; c <= 6; c++) {
+          const cell = worksheet.getCell(rNum, c);
+          cell.border = {
+            top: rOffset === 0 ? { style: "medium", color: { argb: "000000" } } : { style: "thin", color: { argb: "CCCCCC" } },
+            bottom: rOffset === numTotalRows - 1 ? { style: "medium", color: { argb: "000000" } } : { style: "thin", color: { argb: "CCCCCC" } },
+            left: c === 5 ? { style: "medium", color: { argb: "000000" } } : { style: "thin", color: { argb: "000000" } },
+            right: c === 6 ? { style: "medium", color: { argb: "000000" } } : { style: "thin", color: { argb: "000000" } }
+          };
+        }
+      }
+    } else {
+      // Row 1: TOTAL for Quotation
+      worksheet.getCell(`E${totalRow}`).value = "TOTAL";
+      worksheet.getCell(`E${totalRow}`).font = { name: "Arial", size: 9, bold: true };
+      worksheet.getCell(`E${totalRow}`).alignment = { vertical: "middle", horizontal: "right" };
+
+      const valCell = worksheet.getCell(`F${totalRow}`);
+      valCell.value = { formula: `=SUM(${sumRange})` } as any;
+      valCell.font = { name: "Arial", size: 9, bold: true };
+      valCell.alignment = { vertical: "middle", horizontal: "right" };
+      valCell.numFmt = "#,##0.00";
+
+      for (let c = 5; c <= 6; c++) {
+        const cell = worksheet.getCell(totalRow, c);
+        cell.border = {
+          top: { style: "medium", color: { argb: "000000" } },
+          bottom: { style: "medium", color: { argb: "000000" } },
+          left: c === 5 ? { style: "medium", color: { argb: "000000" } } : { style: "thin", color: { argb: "000000" } },
+          right: c === 6 ? { style: "medium", color: { argb: "000000" } } : { style: "thin", color: { argb: "000000" } }
+        };
+      }
     }
 
-    currentRowNum = totalRow + 1;
+    currentRowNum = totalRow + numTotalRows;
   } else {
     currentRowNum = currentRowNum + 1;
   }

@@ -126,6 +126,8 @@ export default function QuotationBuilder() {
   const [requisitionNo, setRequisitionNo] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
   const [poNumber, setPoNumber] = useState("");
+  const [vatPercent, setVatPercent] = useState<string>("0");
+  const [transportationFee, setTransportationFee] = useState<string>("0");
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
@@ -303,7 +305,9 @@ export default function QuotationBuilder() {
       invoiceNo: String(invoiceNo || ""),
       poNumber: String(poNumber || ""),
       rows: sanitizedRows,
-      mergedRegions: sanitizedMergedRegions
+      mergedRegions: sanitizedMergedRegions,
+      vatPercent: parseFloat(vatPercent) || 0,
+      transportationFee: parseFloat(transportationFee) || 0
     };
 
     setSaveStatus("saving");
@@ -337,6 +341,8 @@ export default function QuotationBuilder() {
     setRequisitionNo("");
     setInvoiceNo("");
     setPoNumber("");
+    setVatPercent("0");
+    setTransportationFee("0");
     
     const initialRows: QuotationRow[] = [];
     for (let i = 1; i <= 20; i++) {
@@ -368,6 +374,8 @@ export default function QuotationBuilder() {
     setMergedRegions((doc.mergedRegions || []).map(m => ({ ...m })));
     setCurrentDocId(doc.id);
     setLastSavedTime(null);
+    setVatPercent(doc.vatPercent !== undefined ? String(doc.vatPercent) : "0");
+    setTransportationFee(doc.transportationFee !== undefined ? String(doc.transportationFee) : "0");
 
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -443,6 +451,8 @@ export default function QuotationBuilder() {
           amount: r.amount
         })),
         mergedRegions: mergedRegions.map(m => ({ ...m })),
+        vatPercent: parseFloat(vatPercent) || 0,
+        transportationFee: parseFloat(transportationFee) || 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -508,7 +518,7 @@ export default function QuotationBuilder() {
       const docData: SavedDocument = {
         id: docId,
         name: String(nameToUse || "Unnamed Document"),
-        createdAt: String(savedDocs.find(d => d.id === docId)?.createdAt || now),
+        createdAt: String(savedDocs.find(d => d.id || docId)?.createdAt || now),
         updatedAt: String(now),
         docType: docType as "quotation" | "challan" | "invoice",
         dateVal: String(dateVal || ""),
@@ -519,7 +529,9 @@ export default function QuotationBuilder() {
         invoiceNo: String(invoiceNo || ""),
         poNumber: String(poNumber || ""),
         rows: sanitizedRows,
-        mergedRegions: sanitizedMergedRegions
+        mergedRegions: sanitizedMergedRegions,
+        vatPercent: parseFloat(vatPercent) || 0,
+        transportationFee: parseFloat(transportationFee) || 0
       };
 
       setSaveStatus("saving");
@@ -554,7 +566,9 @@ export default function QuotationBuilder() {
     rows,
     mergedRegions,
     autoSaveEnabled,
-    currentDocId
+    currentDocId,
+    vatPercent,
+    transportationFee
   ]);
 
   // Adjust textarea heights dynamically based on content
@@ -959,7 +973,11 @@ export default function QuotationBuilder() {
     setContextMenu({ visible: true, x, y, rowIndex: idx, colIndex: colIdx });
   };
 
-  const grandTotal = rows.reduce((sum, r) => sum + r.amount, 0);
+  const rowsTotal = rows.reduce((sum, r) => sum + r.amount, 0);
+  const parsedVatPercent = parseFloat(vatPercent) || 0;
+  const parsedTransportationFee = parseFloat(transportationFee) || 0;
+  const vatAmount = docType === "invoice" ? (rowsTotal * parsedVatPercent) / 100 : 0;
+  const grandTotal = docType === "invoice" ? (rowsTotal + vatAmount + parsedTransportationFee) : rowsTotal;
   const calculatedGrandTotal = docType === "challan" ? 0 : grandTotal;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, rowIndex: number, colIndex: number) => {
@@ -1086,7 +1104,9 @@ export default function QuotationBuilder() {
         rows,
         mergedRegions,
         invoiceNo,
-        poNumber
+        poNumber,
+        parseFloat(vatPercent) || 0,
+        parseFloat(transportationFee) || 0
       );
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1976,28 +1996,122 @@ export default function QuotationBuilder() {
                 {/* Bottom closing wraps, sums, signatures */}
                 <div className="closing-wrap mt-2.5">
                   {docType !== "challan" && (
-                    <table className="closing-row w-full border-collapse border-2 border-black table-fixed mt-2.5 bg-white text-black z-10 relative">
+                    <table className="closing-row w-full border-collapse border-2 border-black mt-2.5 bg-white text-black z-10 relative">
                       <tbody>
-                        <tr className="align-stretch">
-                          <td className="amount-words-container w-1/2 border-r-2 border-black p-2 bg-slate-50/50 text-left align-middle">
-                            <span className="font-extrabold text-[7pt] text-slate-700 uppercase tracking-wider block mb-0.5">
-                              Amount in Words:
-                            </span>
-                            <span className="text-[8.5pt] font-mono italic text-black font-black uppercase leading-tight">
-                              {numberToWords(calculatedGrandTotal)}
-                            </span>
-                          </td>
-                          <td className="w-1/2 p-0 align-stretch">
-                            <div className="flex flex-row items-stretch h-full min-h-[40px] w-full">
-                              <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[9pt] font-bold uppercase flex items-center justify-end">
-                                TOTAL
+                        {docType === "invoice" ? (
+                          <>
+                            <tr className="align-stretch">
+                              <td rowSpan={4} className="amount-words-container w-1/2 border-r-2 border-black p-2 bg-slate-50/50 text-left align-middle">
+                                <span className="font-extrabold text-[7pt] text-slate-700 uppercase tracking-wider block mb-0.5">
+                                  Amount in Words:
+                                </span>
+                                <span className="text-[8.5pt] font-mono italic text-black font-black uppercase leading-tight">
+                                  {numberToWords(calculatedGrandTotal)}
+                                </span>
+                              </td>
+                              <td className="w-1/2 p-0 border-b border-black align-stretch">
+                                <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
+                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
+                                    SUBTOTAL
+                                  </div>
+                                  <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-black flex items-center justify-end px-2 py-1 leading-tight">
+                                    {rowsTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr className="align-stretch">
+                              <td className="w-1/2 p-0 border-b border-black align-stretch">
+                                <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
+                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
+                                    <div className="flex items-center justify-end gap-1.5 w-full pl-2">
+                                      <span>VAT</span>
+                                      <div className="flex items-center gap-0.5 no-print print:hidden shrink-0">
+                                        <input
+                                          type="text"
+                                          value={vatPercent}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                              setVatPercent(val);
+                                            }
+                                          }}
+                                          className="w-10 text-center border border-slate-300 rounded font-mono text-[8pt] bg-white text-slate-800 py-0.5"
+                                        />
+                                        <span>%</span>
+                                      </div>
+                                      <span className="hidden print:inline">({parsedVatPercent}%)</span>
+                                    </div>
+                                  </div>
+                                  <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-semibold flex items-center justify-end px-2 py-1 leading-tight">
+                                    {vatAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr className="align-stretch">
+                              <td className="w-1/2 p-0 border-b border-black align-stretch">
+                                <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
+                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
+                                    <div className="flex items-center justify-end gap-1.5 w-full pl-2">
+                                      <span>TRANSPORTATION FEE</span>
+                                      <div className="flex items-center no-print print:hidden shrink-0">
+                                        <input
+                                          type="text"
+                                          value={transportationFee}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                              setTransportationFee(val);
+                                            }
+                                          }}
+                                          placeholder="0"
+                                          className="w-14 text-center border border-slate-300 rounded font-mono text-[8pt] bg-white text-slate-800 py-0.5"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-semibold flex items-center justify-end px-2 py-1 leading-tight">
+                                    {parsedTransportationFee.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr className="align-stretch">
+                              <td className="w-1/2 p-0 align-stretch">
+                                <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
+                                  <div className="total-lbl bg-indigo-50/40 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[9pt] font-black uppercase flex items-center justify-end tracking-wider text-indigo-950">
+                                    GRAND TOTAL
+                                  </div>
+                                  <div className="total-val flex-grow text-right pr-4 text-[10.5pt] font-mono font-black flex items-center justify-end px-2 py-1 leading-tight text-indigo-950">
+                                    {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          </>
+                        ) : (
+                          <tr className="align-stretch">
+                            <td className="amount-words-container w-1/2 border-r-2 border-black p-2 bg-slate-50/50 text-left align-middle">
+                              <span className="font-extrabold text-[7pt] text-slate-700 uppercase tracking-wider block mb-0.5">
+                                Amount in Words:
+                              </span>
+                              <span className="text-[8.5pt] font-mono italic text-black font-black uppercase leading-tight">
+                                {numberToWords(calculatedGrandTotal)}
+                              </span>
+                            </td>
+                            <td className="w-1/2 p-0 align-stretch">
+                              <div className="flex flex-row items-stretch h-full min-h-[40px] w-full">
+                                <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[9pt] font-bold uppercase flex items-center justify-end">
+                                  TOTAL
+                                </div>
+                                <div className="total-val flex-grow text-right pr-4 text-[10pt] font-mono font-black flex items-center justify-end px-2 py-1 leading-tight">
+                                  {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                </div>
                               </div>
-                              <div className="total-val flex-grow text-right pr-4 text-[10pt] font-mono font-black flex items-center justify-end px-2 py-1 leading-tight">
-                                {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   )}

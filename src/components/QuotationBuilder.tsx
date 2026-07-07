@@ -2055,7 +2055,7 @@ export default function QuotationBuilder() {
                                 <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
                                   <div className="total-lbl bg-slate-50 w-[195px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     <div className="flex items-center justify-end gap-1.5 w-full pl-2">
-                                      <span>TRANSPORTATION FEE</span>
+                                      <span>TRANS.</span>
                                       <div className="flex items-center no-print print:hidden shrink-0">
                                         <input
                                           type="text"

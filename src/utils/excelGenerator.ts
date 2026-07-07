@@ -48,14 +48,14 @@ export const generateExcelWorkbook = async (
   // Set column widths and keys
   if (docType === "challan") {
     worksheet.columns = [
-      { key: "A", width: 14 },  // SL (Enlarged to fit logo without any text overlay)
+      { key: "A", width: 8 },   // SL
       { key: "B", width: 62 },  // Description
       { key: "C", width: 15 },  // Qty
       { key: "D", width: 20 },  // Unit
     ];
   } else {
     worksheet.columns = [
-      { key: "A", width: 14 },  // SL (Enlarged to fit logo without any text overlay)
+      { key: "A", width: 8 },   // SL
       { key: "B", width: 55 },  // Description
       { key: "C", width: 10 },  // Qty
       { key: "D", width: 12 },  // Unit
@@ -63,12 +63,6 @@ export const generateExcelWorkbook = async (
       { key: "F", width: 15 },  // Amount
     ];
   }
-
-  // Set explicit row heights for the header area (total 80px height)
-  worksheet.getRow(1).height = 22;
-  worksheet.getRow(2).height = 20;
-  worksheet.getRow(3).height = 19;
-  worksheet.getRow(4).height = 19;
 
   // Enable gridlines setting
   worksheet.views = [{ showGridLines: true }];
@@ -86,8 +80,8 @@ export const generateExcelWorkbook = async (
       extension: logoData.ext as any || "png",
     });
     worksheet.addImage(logoId, {
-      tl: { col: 0.15, row: 0.1 },
-      ext: { width: 76, height: 76 }
+      tl: { col: 0.1, row: 0.1 },
+      ext: { width: 95, height: 95 }
     });
   }
 

@@ -177,33 +177,59 @@ input[type="number"] {
   }
 
   .meta-grid {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
+    display: block !important;
     width: 100% !important;
     margin-bottom: 4px !important;
     clear: both !important;
   }
 
   .meta-grid .meta-box {
-    display: block !important;
-    width: 100% !important;
+    display: inline-block !important;
+    width: 49% !important;
+    vertical-align: top !important;
     box-sizing: border-box !important;
     padding: 5px 6px !important;
     border: 1px solid #000000 !important;
     margin: 0 !important;
   }
 
+  .meta-grid .meta-box:first-child {
+    margin-right: 2% !important;
+  }
+
   .meta-grid .meta-box.grid-cols-2 {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 6px !important;
+    display: block !important;
+  }
+
+  .meta-grid .meta-box.grid-cols-2 .meta-inner-field {
+    display: inline-block !important;
+    width: 48% !important;
+    vertical-align: top !important;
+    margin-right: 4% !important;
+  }
+
+  .meta-grid .meta-box.grid-cols-2 .meta-inner-field:last-child {
+    margin-right: 0 !important;
   }
 
   .meta-grid .meta-box.grid-cols-3 {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr 1fr !important;
-    gap: 6px !important;
+    display: block !important;
+  }
+
+  .meta-grid .meta-box.grid-cols-3 .meta-inner-field {
+    display: inline-block !important;
+    width: 31% !important;
+    vertical-align: top !important;
+    margin-right: 3% !important;
+  }
+
+  .meta-grid .meta-box.grid-cols-3 .meta-inner-field.col-span-2 {
+    width: 65% !important;
+  }
+
+  .meta-grid .meta-box.grid-cols-3 .meta-inner-field:nth-child(3),
+  .meta-grid .meta-box.grid-cols-3 .meta-inner-field:last-child {
+    margin-right: 0 !important;
   }
 
   .meta-box .meta-inner-field {
@@ -211,12 +237,6 @@ input[type="number"] {
     width: 100% !important;
     margin: 0 !important;
     box-sizing: border-box !important;
-  }
-
-  .meta-box .meta-inner-field.col-span-2 {
-    grid-column: span 2 / span 2 !important;
-    width: 100% !important;
-    display: block !important;
   }
 
   /* Force outer layout table to behave as display: table and repeat thead on every page */

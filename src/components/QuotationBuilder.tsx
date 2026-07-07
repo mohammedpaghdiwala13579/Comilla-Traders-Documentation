@@ -1566,7 +1566,9 @@ export default function QuotationBuilder() {
                     </div>
                   </div>
 
-                  <div className="meta-box grid grid-cols-2 gap-2 border border-black p-3 bg-slate-50/30 rounded-xs">
+                  <div className={`meta-box grid border border-black p-3 bg-slate-50/30 rounded-xs ${
+                    docType === "invoice" ? "grid-cols-3 gap-2" : "grid-cols-2 gap-2"
+                  }`}>
                     {docType === "invoice" ? (
                       <>
                         <div className="meta-inner-field col-span-1">
@@ -1580,6 +1582,19 @@ export default function QuotationBuilder() {
                           />
                           <div className="hidden print:block font-mono text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5 break-words">
                             {invoiceNo || " "}
+                          </div>
+                        </div>
+                        <div className="meta-inner-field col-span-1">
+                          <label className="block text-[7.5pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Challan No.:</label>
+                          <input 
+                            type="text" 
+                            value={challanNo}
+                            onChange={(e) => setChallanNo(e.target.value)}
+                            placeholder="Challan number"
+                            className="w-full border-b border-dotted border-slate-400 focus:border-black font-mono text-[9pt] outline-none bg-transparent py-0.5 no-print print:hidden"
+                          />
+                          <div className="hidden print:block font-mono text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5 break-words">
+                            {challanNo || " "}
                           </div>
                         </div>
                         <div className="meta-inner-field col-span-1 relative">
@@ -1608,19 +1623,6 @@ export default function QuotationBuilder() {
                             onChange={handleDatePickerChange}
                             className="absolute invisible w-0 h-0 opacity-0 pointer-events-none"
                           />
-                        </div>
-                        <div className="meta-inner-field col-span-1">
-                          <label className="block text-[7.5pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Challan No.:</label>
-                          <input 
-                            type="text" 
-                            value={challanNo}
-                            onChange={(e) => setChallanNo(e.target.value)}
-                            placeholder="Challan number"
-                            className="w-full border-b border-dotted border-slate-400 focus:border-black font-mono text-[9pt] outline-none bg-transparent py-0.5 no-print print:hidden"
-                          />
-                          <div className="hidden print:block font-mono text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5 break-words">
-                            {challanNo || " "}
-                          </div>
                         </div>
                         <div className="meta-inner-field col-span-1">
                           <label className="block text-[7.5pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Requisition No.:</label>

@@ -179,9 +179,9 @@ input[type="number"] {
   .meta-grid {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 12px !important;
+    gap: 8px !important;
     width: 100% !important;
-    margin-bottom: 6px !important;
+    margin-bottom: 4px !important;
     clear: both !important;
   }
 
@@ -189,15 +189,21 @@ input[type="number"] {
     display: block !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    padding: 8px !important;
+    padding: 5px 6px !important;
     border: 1px solid #000000 !important;
     margin: 0 !important;
   }
 
-  .meta-grid .meta-box.grid {
+  .meta-grid .meta-box.grid-cols-2 {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
+    gap: 6px !important;
+  }
+
+  .meta-grid .meta-box.grid-cols-3 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 6px !important;
   }
 
   .meta-box .meta-inner-field {

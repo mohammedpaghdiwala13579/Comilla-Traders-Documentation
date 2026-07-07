@@ -38,14 +38,21 @@ input[type="number"] {
   /* Set standard A4 page size and optimized symmetrical margins for a highly compact layout */
   @page {
     size: A4 portrait;
-    margin: 10mm 12mm 10mm 12mm;
+    margin: 0 !important;
   }
 
-  html, body {
+  html {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body {
     background-color: #ffffff !important;
     color: #000000 !important;
     font-size: 8.5pt !important;
-    margin: 0 !important;
+    margin: 10mm 12mm 10mm 12mm !important;
     padding: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;

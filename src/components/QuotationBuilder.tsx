@@ -1738,7 +1738,7 @@ export default function QuotationBuilder() {
                         {docType !== "challan" && (
                           <>
                             <th className="w-[12%] border border-black py-1.5 text-center font-bold">Price</th>
-                            <th className="w-[18%] border border-black py-1.5 text-center font-bold">Amount</th>
+                            <th className="w-[18%] border border-black py-1.5 text-right pr-2 font-bold">Amount</th>
                           </>
                         )}
                       </tr>

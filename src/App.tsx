@@ -170,8 +170,8 @@ export default function App() {
         </div>
 
         {/* Permanent Quick-Launch / Install Action for Standalone App */}
-        <div className="flex items-center gap-2">
-          {!isStandalone ? (
+        {!isStandalone && (
+          <div className="flex items-center gap-2">
             <button
               id="btn-header-install"
               onClick={handleInstallClick}
@@ -180,13 +180,8 @@ export default function App() {
               <Download className="h-3.5 w-3.5 text-indigo-600 animate-bounce" />
               <span>Install App</span>
             </button>
-          ) : (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-              <Check className="h-3.5 w-3.5" />
-              <span>Desktop App Active</span>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </header>
 
       {/* 3. iOS / Safari / Manual Install Guidance Modal */}

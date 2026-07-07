@@ -1481,76 +1481,68 @@ export default function QuotationBuilder() {
           />
         </div>
 
-        {/* Scrollable container for mobile view */}
-        <div className="w-full overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 mt-4">
-          {/* Outer Layout Table ensuring thead repeats company details on multi-page browser printing */}
-          <table className="print-outer-layout-table main-table w-[650px] sm:w-full border-collapse border-none p-0 m-0 relative z-10 table-fixed text-[9pt]">
-            <thead className="print:table-header-group">
-              <tr className="no-border">
-                <td colSpan={docType === 'challan' ? 4 : 6} className="no-border border-none p-0 m-0">
-                  <div className="business-header border-b-2 border-black pb-3 mb-2 flex flex-col sm:flex-row items-center justify-between gap-4 text-black text-left">
-                    <div className="flex items-center gap-4">
-                      <div className="logo-container h-28 w-28 sm:h-32 sm:w-32 shrink-0 rounded-full border-2 border-slate-300 overflow-hidden bg-black flex items-center justify-center shadow-sm">
-                        <img
-                          src="https://i.ibb.co.com/gFBkpt8B/Chat-GPT-Image-Apr-23-2026-01-10-13-PM.png"
-                          alt="Comilla Traders Logo"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <h1 className="text-[22pt] font-black tracking-tight leading-none text-black">
-                          COMILLA TRADERS
-                        </h1>
-                        <p className="text-[9pt] font-extrabold text-slate-700 tracking-wider uppercase mt-1.5">
-                          Ship Chandler, Marine Supplier & General Merchant
-                        </p>
-                        <p className="text-[7.5pt] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                          Mechanical & Electrical Marine Engineering Services
-                        </p>
-                      </div>
+        {/* Outer Layout Table ensuring thead repeats company details on multi-page browser printing */}
+        <table className="print-outer-layout-table w-full border-none p-0 m-0 relative z-10">
+          <thead className="print:table-header-group">
+            <tr>
+              <td className="border-none p-0 m-0">
+                <div className="business-header border-b-2 border-black pb-3 mb-2 flex flex-col sm:flex-row items-center justify-between gap-4 text-black text-left">
+                  <div className="flex items-center gap-4">
+                    <div className="logo-container h-28 w-28 sm:h-32 sm:w-32 shrink-0 rounded-full border-2 border-slate-300 overflow-hidden bg-black flex items-center justify-center shadow-sm">
+                      <img
+                        src="https://i.ibb.co.com/gFBkpt8B/Chat-GPT-Image-Apr-23-2026-01-10-13-PM.png"
+                        alt="Comilla Traders Logo"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
+                    <div>
+                      <h1 className="text-[22pt] font-black tracking-tight leading-none text-black">
+                        COMILLA TRADERS
+                      </h1>
+                      <p className="text-[9pt] font-extrabold text-slate-700 tracking-wider uppercase mt-1.5">
+                        Ship Chandler, Marine Supplier & General Merchant
+                      </p>
+                      <p className="text-[7.5pt] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                        Mechanical & Electrical Marine Engineering Services
+                      </p>
+                    </div>
+                  </div>
 
-                    <div className="contact-details text-right text-[7.5pt] text-slate-800 space-y-0.5 leading-tight sm:block hidden print:block">
-                      <p className="font-bold whitespace-nowrap">
-                        Office: <span className="font-medium whitespace-nowrap">Jubilee Road, Chattogram, Bangladesh</span>
-                      </p>
-                      <p className="font-bold whitespace-nowrap">
-                        Helplines: <span className="font-medium font-mono whitespace-nowrap">01819315746, 01712-900431</span>
-                      </p>
-                      <p className="font-bold whitespace-nowrap">
-                        Official Email: <span className="font-medium whitespace-nowrap">comillatraders@gmail.com</span>
-                      </p>
-                      <p className="font-bold text-[7pt] tracking-widest text-indigo-700 uppercase whitespace-nowrap">
-                        CHATTOGRAM &bull; BANGLADESH
-                      </p>
-                    </div>
-                    
-                    {/* Print contact information layout */}
-                    <div className="text-center text-[8pt] text-slate-800 space-y-0.5 leading-tight sm:hidden print:hidden">
-                      <p>Jubilee Road, Chattogram &bull; Hotlines: 01819315746</p>
-                      <p>comillatraders@gmail.com</p>
-                    </div>
+                  <div className="contact-details text-right text-[7.5pt] text-slate-800 space-y-0.5 leading-tight sm:block hidden print:block">
+                    <p className="font-bold whitespace-nowrap">
+                      Office: <span className="font-medium whitespace-nowrap">Jubilee Road, Chattogram, Bangladesh</span>
+                    </p>
+                    <p className="font-bold whitespace-nowrap">
+                      Helplines: <span className="font-medium font-mono whitespace-nowrap">01819315746, 01712-900431</span>
+                    </p>
+                    <p className="font-bold whitespace-nowrap">
+                      Official Email: <span className="font-medium whitespace-nowrap">comillatraders@gmail.com</span>
+                    </p>
+                    <p className="font-bold text-[7pt] tracking-widest text-indigo-700 uppercase whitespace-nowrap">
+                      CHATTOGRAM &bull; BANGLADESH
+                    </p>
                   </div>
-                </td>
-              </tr>
-              <tr className="no-border">
-                <td colSpan={docType === 'challan' ? 4 : 6} className="no-border border-none p-0 m-0">
-                  {/* Repeating Document Title on multi-page browser printing */}
-                  <div className="doc-title text-center text-[15pt] font-black uppercase tracking-[8px] my-2">
-                    {docType === "challan" ? "Delivery Challan" : docType === "invoice" ? "Bill / Invoice" : "Quotation"}
+                  
+                  {/* Print contact information layout */}
+                  <div className="text-center text-[8pt] text-slate-800 space-y-0.5 leading-tight sm:hidden print:hidden">
+                    <p>Jubilee Road, Chattogram &bull; Hotlines: 01819315746</p>
+                    <p>comillatraders@gmail.com</p>
                   </div>
-                </td>
-              </tr>
-              <tr className="no-border">
-                <td colSpan={docType === 'challan' ? 4 : 6} className="no-border border-none p-0 m-0">
-                  {/* Repeating Metadata Information Input Grid on multi-page browser printing */}
-                  <div className="meta-grid grid grid-cols-1 sm:grid-cols-2 gap-4 text-left text-[9pt] mb-3">
-                    <div className="meta-box space-y-2 border border-black p-3 bg-slate-50/30 rounded-xs">
-                      <div>
-                        <label className="block text-[7.5pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Messers:</label>
-                        <input 
-                          type="text" 
-                          value={messers}
+                </div>
+
+                {/* Repeating Document Title on multi-page browser printing */}
+                <div className="doc-title text-center text-[15pt] font-black uppercase tracking-[8px] my-2">
+                  {docType === "challan" ? "Delivery Challan" : docType === "invoice" ? "Bill / Invoice" : "Quotation"}
+                </div>
+
+                {/* Repeating Metadata Information Input Grid on multi-page browser printing */}
+                <div className="meta-grid grid grid-cols-1 sm:grid-cols-2 gap-4 text-left text-[9pt] mb-3">
+                  <div className="meta-box space-y-2 border border-black p-3 bg-slate-50/30 rounded-xs">
+                    <div>
+                      <label className="block text-[7.5pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Messers:</label>
+                      <input 
+                        type="text" 
+                        value={messers}
                         onChange={(e) => setMessers(e.target.value)}
                         placeholder="Enter Client/Ship details"
                         className="w-full border-b border-dotted border-slate-400 focus:border-black font-bold text-[9.5pt] outline-none bg-transparent py-0.5 no-print print:hidden"
@@ -1749,22 +1741,29 @@ export default function QuotationBuilder() {
                 </div>
               </td>
             </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="border-none p-0 m-0">
 
-              {/* Item Column Headers */}
-              <tr className="bg-slate-50 text-[8pt]">
-                <th className={`${docType === 'challan' ? 'w-[7%]' : 'w-[5%]'} border border-black py-1.5 text-center font-bold`}>SL</th>
-                <th className={`${docType === 'challan' ? 'w-[68%]' : 'w-[45%]'} border border-black py-1.5 text-left px-2 font-bold`}>Description of Marine Items / Spare Parts</th>
-                <th className={`${docType === 'challan' ? 'w-[12%]' : 'w-[8%]'} border border-black py-1.5 text-center font-bold`}>Qty</th>
-                <th className={`${docType === 'challan' ? 'w-[13%]' : 'w-[12%]'} border border-black py-1.5 text-center font-bold`}>Unit</th>
-                {docType !== "challan" && (
-                  <>
-                    <th className="w-[12%] border border-black py-1.5 text-center font-bold">Price</th>
-                    <th className="w-[18%] border border-black py-1.5 text-center font-bold">Amount</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody>
+                {/* Main Data Sheet Table */}
+                <div className="w-full overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 mt-4">
+                  <table className="main-table w-[650px] sm:w-full border-collapse border-[1.5px] border-black table-fixed text-[9pt]">
+                    <thead>
+                      <tr className="bg-slate-50 text-[8pt]">
+                        <th className={`${docType === 'challan' ? 'w-[7%]' : 'w-[5%]'} border border-black py-1.5 text-center font-bold`}>SL</th>
+                        <th className={`${docType === 'challan' ? 'w-[68%]' : 'w-[45%]'} border border-black py-1.5 text-left px-2 font-bold`}>Description of Marine Items / Spare Parts</th>
+                        <th className={`${docType === 'challan' ? 'w-[12%]' : 'w-[8%]'} border border-black py-1.5 text-center font-bold`}>Qty</th>
+                        <th className={`${docType === 'challan' ? 'w-[13%]' : 'w-[12%]'} border border-black py-1.5 text-center font-bold`}>Unit</th>
+                        {docType !== "challan" && (
+                          <>
+                            <th className="w-[12%] border border-black py-1.5 text-center font-bold">Price</th>
+                            <th className="w-[18%] border border-black py-1.5 text-center font-bold">Amount</th>
+                          </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
                       {rows.map((row, idx) => (
                         <tr 
                           key={idx} 
@@ -1969,33 +1968,33 @@ export default function QuotationBuilder() {
                           })}
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                      {/* Bottom closing wraps, sums, signatures as a separate row of the outer layout table */}
-                      <tr className="no-border">
-                        <td colSpan={docType === 'challan' ? 4 : 6} className="no-border border-none p-0 m-0">
-                          {/* Grid Line Actions */}
-                          <div className="no-print print:hidden flex items-center gap-2 mt-2 mb-3">
-                            <button
-                              type="button"
-                              onClick={addRow}
-                              className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 text-indigo-800 font-extrabold text-[10px] px-3 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer uppercase tracking-wider"
-                            >
-                              <Plus className="h-3 w-3" />
-                              Add Line
-                            </button>
-                            <button
-                              type="button"
-                              onClick={removeRow}
-                              disabled={rows.length <= 1}
-                              className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-800 font-extrabold text-[10px] px-3 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              Remove Line
-                            </button>
-                          </div>
+                {/* Grid Line Actions */}
+                <div className="no-print print:hidden flex items-center gap-2 mt-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 text-indigo-800 font-extrabold text-[10px] px-3 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer uppercase tracking-wider"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add Line
+                  </button>
+                  <button
+                    type="button"
+                    onClick={removeRow}
+                    disabled={rows.length <= 1}
+                    className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-800 font-extrabold text-[10px] px-3 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Remove Line
+                  </button>
+                </div>
 
-                          {/* Bottom closing wraps, sums, signatures */}
-                          <div className="closing-wrap mt-2.5">
+                {/* Bottom closing wraps, sums, signatures */}
+                <div className="closing-wrap mt-2.5">
                   {docType !== "challan" && (
                     <table className="closing-row w-full border-collapse border-2 border-black mt-2.5 bg-white text-black z-10 relative">
                       <tbody>
@@ -2012,7 +2011,7 @@ export default function QuotationBuilder() {
                               </td>
                               <td className="w-1/2 p-0 border-b border-black align-stretch">
                                 <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
-                                  <div className="total-lbl bg-slate-50 w-[195px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
+                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     SUBTOTAL
                                   </div>
                                   <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-black flex items-center justify-end px-2 py-1 leading-tight">
@@ -2024,7 +2023,7 @@ export default function QuotationBuilder() {
                             <tr className="align-stretch">
                               <td className="w-1/2 p-0 border-b border-black align-stretch">
                                 <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
-                                  <div className="total-lbl bg-slate-50 w-[195px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
+                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     <div className="flex items-center justify-end gap-1.5 w-full pl-2">
                                       <span>VAT</span>
                                       <div className="flex items-center gap-0.5 no-print print:hidden shrink-0">
@@ -2037,7 +2036,7 @@ export default function QuotationBuilder() {
                                               setVatPercent(val);
                                             }
                                           }}
-                                          className="w-10 text-center border-b border-slate-300 focus:border-black font-mono text-[8.5pt] font-bold bg-transparent text-slate-800 py-0 px-0.5 outline-none"
+                                          className="w-10 text-center border border-slate-300 rounded font-mono text-[8pt] bg-white text-slate-800 py-0.5"
                                         />
                                         <span>%</span>
                                       </div>
@@ -2053,9 +2052,9 @@ export default function QuotationBuilder() {
                             <tr className="align-stretch">
                               <td className="w-1/2 p-0 border-b border-black align-stretch">
                                 <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
-                                  <div className="total-lbl bg-slate-50 w-[195px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
+                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     <div className="flex items-center justify-end gap-1.5 w-full pl-2">
-                                      <span>TRANS.</span>
+                                      <span>TRANSPORTATION FEE</span>
                                       <div className="flex items-center no-print print:hidden shrink-0">
                                         <input
                                           type="text"
@@ -2067,7 +2066,7 @@ export default function QuotationBuilder() {
                                             }
                                           }}
                                           placeholder="0"
-                                          className="w-14 text-center border-b border-slate-300 focus:border-black font-mono text-[8.5pt] font-bold bg-transparent text-slate-800 py-0 px-0.5 outline-none"
+                                          className="w-14 text-center border border-slate-300 rounded font-mono text-[8pt] bg-white text-slate-800 py-0.5"
                                         />
                                       </div>
                                     </div>
@@ -2081,7 +2080,7 @@ export default function QuotationBuilder() {
                             <tr className="align-stretch">
                               <td className="w-1/2 p-0 align-stretch">
                                 <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
-                                  <div className="total-lbl bg-indigo-50/40 w-[195px] shrink-0 pr-2 text-right border-r-2 border-black text-[9pt] font-black uppercase flex items-center justify-end tracking-wider text-indigo-950">
+                                  <div className="total-lbl bg-indigo-50/40 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[9pt] font-black uppercase flex items-center justify-end tracking-wider text-indigo-950">
                                     GRAND TOTAL
                                   </div>
                                   <div className="total-val flex-grow text-right pr-4 text-[10.5pt] font-mono font-black flex items-center justify-end px-2 py-1 leading-tight text-indigo-950">
@@ -2147,11 +2146,10 @@ export default function QuotationBuilder() {
                     )}
                   </div>
                 </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {/* Online Document Search, Lists, and Documentation Panel */}

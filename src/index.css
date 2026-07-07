@@ -240,26 +240,23 @@ input[type="number"] {
     page-break-after: avoid !important;
   }
 
-  table.print-outer-layout-table > thead > tr > td,
-  table.print-outer-layout-table td.no-border,
-  table.print-outer-layout-table tr.no-border td {
+  table.print-outer-layout-table > thead > tr > td {
     position: static !important;
     border: none !important;
     padding: 0 !important;
     margin: 0 !important;
-    background: transparent !important;
   }
 
   /* Table styling for perfect alignments and borders */
   .main-table {
     width: 100% !important;
     border-collapse: collapse !important;
-    border: none !important;
+    border: 1.5px solid #000000 !important;
     table-layout: fixed !important;
   }
 
-  .main-table th:not(.no-border), 
-  .main-table td:not(.no-border) {
+  .main-table th, 
+  .main-table td {
     border: 1px solid #000000 !important;
     padding: 2.5px 5px !important; /* ultra-compact padding */
     word-wrap: break-word !important;

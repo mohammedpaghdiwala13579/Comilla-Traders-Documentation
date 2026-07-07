@@ -1471,7 +1471,7 @@ export default function QuotationBuilder() {
       <div className="sheet relative w-full max-w-[210mm] min-h-[297mm] bg-white p-4 sm:p-[12mm] print:p-0 shadow-xl border border-slate-200/60 rounded-xs box-border z-10 mx-auto">
         
         {/* Anti-slip Background Watermark Asset */}
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0 select-none">
+        <div className="watermark-container absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0 select-none">
           <img 
             src="https://i.ibb.co.com/3mNycQXx/1.png" 
             alt="Watermark background" 

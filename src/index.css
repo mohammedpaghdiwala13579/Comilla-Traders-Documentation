@@ -86,6 +86,7 @@ input[type="number"] {
     width: 100% !important;
     min-height: 0 !important;
     display: block !important;
+    overflow: visible !important;
   }
 
   .sheet {
@@ -98,8 +99,33 @@ input[type="number"] {
     min-height: 0 !important;
     margin: 0 auto !important;
     background-color: #ffffff !important;
-    page-break-after: always;
     position: static !important; /* Crucial for repeating table headers in Chrome */
+    overflow: visible !important;
+    page-break-after: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  /* Centered repeating watermark on every page in print */
+  .watermark-container {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 70% !important;
+    height: auto !important;
+    max-width: 500px !important;
+    z-index: -1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  .watermark-container img {
+    width: 100% !important;
+    max-width: 500px !important;
+    opacity: 0.045 !important;
   }
 
   /* Print optimizations for Comilla Traders letterhead and metadata boxes */
@@ -122,10 +148,9 @@ input[type="number"] {
 
   .business-header .contact-details {
     display: inline-block !important;
-    width: 32% !important;
+    width: 34% !important;
     vertical-align: middle !important;
     text-align: right !important;
-    float: right !important;
   }
 
   .logo-container {
@@ -139,6 +164,7 @@ input[type="number"] {
   .logo-container + div {
     display: inline-block !important;
     vertical-align: middle !important;
+    width: calc(100% - 92px) !important;
   }
 
   .doc-title {
@@ -151,44 +177,39 @@ input[type="number"] {
   }
 
   .meta-grid {
-    display: block !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
     width: 100% !important;
     margin-bottom: 6px !important;
     clear: both !important;
   }
 
   .meta-grid .meta-box {
-    display: inline-block !important;
-    width: 49.2% !important;
-    vertical-align: top !important;
-    box-sizing: border-box !important;
-    padding: 6px !important;
-    border: 1px solid #000000 !important;
-  }
-
-  .meta-grid .meta-box:first-child {
-    margin-right: 1.5% !important;
-  }
-
-  .meta-box.grid {
     display: block !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 8px !important;
+    border: 1px solid #000000 !important;
+    margin: 0 !important;
+  }
+
+  .meta-grid .meta-box.grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
   }
 
   .meta-box .meta-inner-field {
-    display: inline-block !important;
-    width: 48.5% !important;
-    vertical-align: top !important;
-    margin-bottom: 4px !important;
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
     box-sizing: border-box !important;
   }
 
-  .meta-box .meta-inner-field:nth-child(even) {
-    margin-left: 3% !important;
-  }
-
   .meta-box .meta-inner-field.col-span-2 {
+    grid-column: span 2 / span 2 !important;
     width: 100% !important;
-    margin-left: 0 !important;
     display: block !important;
   }
 

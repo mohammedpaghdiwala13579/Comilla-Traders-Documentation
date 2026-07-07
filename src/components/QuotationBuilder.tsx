@@ -1638,12 +1638,15 @@ export default function QuotationBuilder() {
                             value={challanNo}
                             onChange={(e) => setChallanNo(e.target.value)}
                             placeholder="Challan number"
-                            className="w-full border-b border-dotted border-slate-400 focus:border-black font-mono text-[9pt] outline-none bg-transparent py-0.5"
+                            className="w-full border-b border-dotted border-slate-400 focus:border-black font-mono text-[9pt] outline-none bg-transparent py-0.5 no-print print:hidden"
                           />
+                          <div className="hidden print:block font-mono text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5 break-words">
+                            {challanNo || " "}
+                          </div>
                         </div>
                         <div className="meta-inner-field col-span-1 relative">
                           <label className="block text-[7.5pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Date:</label>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 no-print print:hidden">
                             <input 
                               type="text" 
                               value={dateVal}
@@ -1653,10 +1656,13 @@ export default function QuotationBuilder() {
                             <button
                               type="button"
                               onClick={triggerDatePicker}
-                              className="no-print print:hidden p-0.5 hover:bg-slate-100 rounded text-slate-600 transition-colors cursor-pointer flex items-center justify-center"
+                              className="p-0.5 hover:bg-slate-100 rounded text-slate-600 transition-colors cursor-pointer flex items-center justify-center shrink-0"
                             >
                               <Calendar className="h-3.5 w-3.5" />
                             </button>
+                          </div>
+                          <div className="hidden print:block font-mono text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5">
+                            {dateVal || " "}
                           </div>
                           <input
                             ref={dateRef}
@@ -1669,7 +1675,7 @@ export default function QuotationBuilder() {
                     ) : (
                       <div className="meta-inner-field col-span-2 relative">
                         <label className="block text-[7.5pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Date:</label>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 no-print print:hidden">
                           <input 
                             type="text" 
                             value={dateVal}
@@ -1679,10 +1685,13 @@ export default function QuotationBuilder() {
                           <button
                             type="button"
                             onClick={triggerDatePicker}
-                            className="no-print print:hidden p-0.5 hover:bg-slate-100 rounded text-slate-600 transition-colors cursor-pointer flex items-center justify-center"
+                            className="p-0.5 hover:bg-slate-100 rounded text-slate-600 transition-colors cursor-pointer flex items-center justify-center shrink-0"
                           >
                             <Calendar className="h-3.5 w-3.5" />
                           </button>
+                        </div>
+                        <div className="hidden print:block font-mono text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5">
+                          {dateVal || " "}
                         </div>
                         <input
                           ref={dateRef}
@@ -1701,8 +1710,11 @@ export default function QuotationBuilder() {
                           value={requisitionNo}
                           onChange={(e) => setRequisitionNo(e.target.value)}
                           placeholder="Requisition number"
-                          className="w-full border-b border-dotted border-slate-400 focus:border-black font-mono text-[9pt] outline-none bg-transparent py-0.5"
+                          className="w-full border-b border-dotted border-slate-400 focus:border-black font-mono text-[9pt] outline-none bg-transparent py-0.5 no-print print:hidden"
                         />
+                        <div className="hidden print:block font-mono text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5 break-words">
+                          {requisitionNo || " "}
+                        </div>
                       </div>
                     )}
                   </div>

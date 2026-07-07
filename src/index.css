@@ -51,6 +51,24 @@ input[type="number"] {
     print-color-adjust: exact !important;
   }
 
+  /* Ensure parent containers don't have flex, grid, transforms, transitions, or animations in print */
+  #root,
+  .min-h-screen,
+  main,
+  .animate-in {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    position: static !important;
+    transform: none !important;
+    filter: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
   /* When printing the quotation/challan, hide non-printing elements */
   .no-print,
   .excel-editor-container,

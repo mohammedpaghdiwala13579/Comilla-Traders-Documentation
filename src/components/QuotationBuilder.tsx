@@ -1428,7 +1428,7 @@ export default function QuotationBuilder() {
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 border-b border-slate-100 px-3 py-1.5 text-xs select-none">
           <div className="font-semibold text-[11px] text-indigo-700 mr-2 font-mono flex items-center gap-1">
             <span className="bg-indigo-600 text-white font-black text-[8.5px] px-1 py-0.5 rounded-xs leading-none shadow-xs">田</span>
-            <span className="font-extrabold tracking-tight font-sans text-[10.5px]">ComillaSheets</span>
+            <span className="font-extrabold tracking-tight font-sans text-[10.5px]">ComillaSheets v4.2</span>
           </div>
 
           <button
@@ -2056,7 +2056,7 @@ export default function QuotationBuilder() {
                                 <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
                                   <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     <div className="flex items-center justify-end gap-1.5 w-full pl-2">
-                                      <span>TRANS.</span>
+                                      <span>TRANSPORTATION FEE</span>
                                       <div className="flex items-center no-print print:hidden shrink-0">
                                         <input
                                           type="text"

@@ -1428,7 +1428,7 @@ export default function QuotationBuilder() {
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 border-b border-slate-100 px-3 py-1.5 text-xs select-none">
           <div className="font-semibold text-[11px] text-indigo-700 mr-2 font-mono flex items-center gap-1">
             <span className="bg-indigo-600 text-white font-black text-[8.5px] px-1 py-0.5 rounded-xs leading-none shadow-xs">田</span>
-            <span className="font-extrabold tracking-tight font-sans text-[10.5px]">ComillaSheets v4.2</span>
+            <span className="font-extrabold tracking-tight font-sans text-[10.5px]">ComillaSheets</span>
           </div>
 
           <button

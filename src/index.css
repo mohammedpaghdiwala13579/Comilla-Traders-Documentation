@@ -1,0 +1,232 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", sans-serif;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Hide webkit/spinner buttons for number fields */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Print Styling Configuration */
+@media print {
+  /* Set standard A4 page size and optimized symmetrical margins for a highly compact layout */
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 8.5pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* When printing the quotation/challan, hide non-printing elements */
+  .no-print,
+  .excel-editor-container,
+  .top-toolbar,
+  .saved-docs-panel,
+  header.no-print,
+  footer {
+    display: none !important;
+  }
+
+  .quotation-container {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    display: block !important;
+  }
+
+  .sheet {
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+    padding: 0 !important; /* Rely on @page margin to prevent double padding */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    background-color: #ffffff !important;
+    page-break-after: always;
+    position: static !important; /* Crucial for repeating table headers in Chrome */
+  }
+
+  /* Print optimizations for Comilla Traders letterhead and metadata boxes */
+  .business-header {
+    border-bottom-width: 1.5px !important;
+    border-bottom-color: #000000 !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .logo-container {
+    height: 92px !important;
+    width: 92px !important;
+  }
+
+  .doc-title {
+    margin-top: 2px !important;
+    margin-bottom: 4px !important;
+    font-size: 13pt !important;
+    letter-spacing: 6px !important;
+  }
+
+  .meta-grid {
+    gap: 8px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .meta-box {
+    padding: 6px !important;
+  }
+
+  /* Force outer layout table to behave as display: table and repeat thead on every page */
+  table.print-outer-layout-table {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: none !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  table.print-outer-layout-table > thead {
+    display: table-header-group !important;
+    position: static !important;
+  }
+
+  table.print-outer-layout-table > tbody {
+    display: table-row-group !important;
+    position: static !important;
+  }
+
+  table.print-outer-layout-table > thead > tr {
+    position: static !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  table.print-outer-layout-table > thead > tr > td {
+    position: static !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Table styling for perfect alignments and borders */
+  .main-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: 1.5px solid #000000 !important;
+    table-layout: fixed !important;
+  }
+
+  .main-table th, 
+  .main-table td {
+    border: 1px solid #000000 !important;
+    padding: 2.5px 5px !important; /* ultra-compact padding */
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  .main-table tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* Ensure scroll wrappers do not have negative margins or overflow when printing */
+  .sheet .overflow-x-auto {
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Ensure stamp and signature section don't break across pages */
+  .closing-wrap {
+    page-break-inside: avoid !important;
+  }
+
+  .sig-section {
+    page-break-inside: avoid !important;
+    margin-top: 24px !important; /* tighter vertical gap */
+  }
+
+  /* Force background colors and image watermarks to show */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* PDF Generation temporary styling overrides */
+.is-generating-pdf .no-print,
+.is-generating-pdf .excel-editor-container,
+.is-generating-pdf .top-toolbar,
+.is-generating-pdf .saved-docs-panel,
+.is-generating-pdf footer,
+.is-generating-pdf header {
+  display: none !important;
+}
+
+.is-generating-pdf .print\:hidden {
+  display: none !important;
+}
+
+.is-generating-pdf .hidden.print\:block {
+  display: block !important;
+}
+
+.is-generating-pdf textarea.no-print,
+.is-generating-pdf input.no-print {
+  display: none !important;
+}
+
+.is-generating-pdf .sheet {
+  box-shadow: none !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 12mm !important;
+  width: 210mm !important;
+  min-height: 297mm !important;
+  background-color: #ffffff !important;
+}
+
+.is-generating-pdf .quotation-container {
+  background-color: #ffffff !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}

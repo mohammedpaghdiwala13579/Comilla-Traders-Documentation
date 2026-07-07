@@ -1,0 +1,33 @@
+{
+  "entities": {
+    "document": {
+      "title": "SavedDocument",
+      "description": "A saved quotation, invoice, or delivery challan document",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "docType": { "type": "string" },
+        "dateVal": { "type": "string" },
+        "messers": { "type": "string" },
+        "address": { "type": "string" },
+        "invoiceNo": { "type": "string" },
+        "challanNo": { "type": "string" },
+        "requisitionNo": { "type": "string" },
+        "poNumber": { "type": "string" },
+        "vatPercent": { "type": "number" },
+        "transportation": { "type": "number" },
+        "rows": { "type": "array" },
+        "mergedRegions": { "type": "array" }
+      },
+      "required": ["name", "createdAt", "updatedAt", "docType", "rows"]
+    }
+  },
+  "firestore": {
+    "documents/{documentId}": {
+      "schema": "document",
+      "description": "Collection of saved quotation, invoice, and challan documents"
+    }
+  }
+}

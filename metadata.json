@@ -1,0 +1,6 @@
+{
+  "name": "Quotation and Challan Builder",
+  "description": "Professional Ship Chandler Quotation, Invoice, and Delivery Challan Builder for Comilla Traders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

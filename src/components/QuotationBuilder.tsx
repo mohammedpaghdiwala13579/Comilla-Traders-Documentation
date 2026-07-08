@@ -1110,12 +1110,52 @@ export default function QuotationBuilder() {
       );
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+
+      const filePrefix = docType === "challan" ? "Challan" : docType === "invoice" ? "Invoice" : "Quotation";
+      const identifier = docType === "challan" ? (challanNo || "NEW") : docType === "invoice" ? (invoiceNo || "NEW") : (requisitionNo || "NEW");
+      const defaultFileName = `${filePrefix}_${identifier.replace(/[\/\\?%*:|"<>\s]/g, "_")}.xlsx`;
+
+      // 1. Try modern File System Access API first (highly supported on Desktop browsers like Chrome, Edge, Opera)
+      // This allows selecting directory, browsing existing files, renaming, or choosing paths dynamically.
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: defaultFileName,
+            types: [{
+              description: 'Excel Spreadsheet',
+              accept: {
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+              }
+            }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          return; // Done successfully
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            // User cancelled the native save picker - abort nicely without showing error/fallback
+            return;
+          }
+          console.warn("showSaveFilePicker failed or was blocked, falling back to prompt method:", err);
+        }
+      }
+
+      // 2. Fallback: Prompt the user to customize the filename, then run standard Anchor download
+      const userFileName = prompt("Enter a filename to save:", defaultFileName);
+      if (userFileName === null) {
+        // User clicked Cancel
+        return;
+      }
+
+      const finalFileName = userFileName.trim()
+        ? (userFileName.toLowerCase().endsWith(".xlsx") ? userFileName.trim() : `${userFileName.trim()}.xlsx`)
+        : defaultFileName;
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const filePrefix = docType === "challan" ? "Challan" : docType === "invoice" ? "Invoice" : "Quotation";
-      const identifier = docType === "challan" ? (challanNo || "NEW") : docType === "invoice" ? (invoiceNo || "NEW") : (requisitionNo || "NEW");
-      a.download = `${filePrefix}_${identifier.replace(/[\/\\?%*:|"<>\s]/g, "_")}.xlsx`;
+      a.download = finalFileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -2056,7 +2096,7 @@ export default function QuotationBuilder() {
                                 <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
                                   <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     <div className="flex items-center justify-end gap-1.5 w-full pl-2">
-                                      <span>TRANS.</span>
+                                      <span>TRANSPORTATION FEE</span>
                                       <div className="flex items-center no-print print:hidden shrink-0">
                                         <input
                                           type="text"

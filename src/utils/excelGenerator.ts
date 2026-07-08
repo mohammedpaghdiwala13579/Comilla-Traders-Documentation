@@ -104,30 +104,32 @@ export const generateExcelWorkbook = async (
   const totalCols = docType === "challan" ? 4 : 6;
   const lastColLetter = totalCols === 4 ? "D" : "F";
 
-  // Set contact info on the right
-  const contact1 = worksheet.getCell(`${lastColLetter}1`);
+  // Set contact info on the right (Write to top-left cell of merged region for visibility)
+  const firstColOfHeader = totalCols === 4 ? "C" : "E";
+
+  const contact1 = worksheet.getCell(`${firstColOfHeader}1`);
   contact1.value = "Office: Jubilee Road, Chattogram, Bangladesh";
   contact1.font = { name: "Arial", size: 8, color: { argb: "1E293B" } };
   contact1.alignment = { vertical: "middle", horizontal: "right" };
-  worksheet.mergeCells(`${totalCols === 4 ? "C" : "E"}1:${lastColLetter}1`);
+  worksheet.mergeCells(`${firstColOfHeader}1:${lastColLetter}1`);
 
-  const contact2 = worksheet.getCell(`${lastColLetter}2`);
+  const contact2 = worksheet.getCell(`${firstColOfHeader}2`);
   contact2.value = "Helplines: 01819315746, 01712-900431";
   contact2.font = { name: "Arial", size: 8, color: { argb: "1E293B" } };
   contact2.alignment = { vertical: "middle", horizontal: "right" };
-  worksheet.mergeCells(`${totalCols === 4 ? "C" : "E"}2:${lastColLetter}2`);
+  worksheet.mergeCells(`${firstColOfHeader}2:${lastColLetter}2`);
 
-  const contact3 = worksheet.getCell(`${lastColLetter}3`);
+  const contact3 = worksheet.getCell(`${firstColOfHeader}3`);
   contact3.value = "Official Email: comillatraders@gmail.com";
   contact3.font = { name: "Arial", size: 8, color: { argb: "1E293B" } };
   contact3.alignment = { vertical: "middle", horizontal: "right" };
-  worksheet.mergeCells(`${totalCols === 4 ? "C" : "E"}3:${lastColLetter}3`);
+  worksheet.mergeCells(`${firstColOfHeader}3:${lastColLetter}3`);
 
-  const contact4 = worksheet.getCell(`${lastColLetter}4`);
+  const contact4 = worksheet.getCell(`${firstColOfHeader}4`);
   contact4.value = "CHATTOGRAM • BANGLADESH";
   contact4.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "1D4ED8" } };
   contact4.alignment = { vertical: "middle", horizontal: "right" };
-  worksheet.mergeCells(`${totalCols === 4 ? "C" : "E"}4:${lastColLetter}4`);
+  worksheet.mergeCells(`${firstColOfHeader}4:${lastColLetter}4`);
 
   // Bold line under the header
   for (let c = 1; c <= totalCols; c++) {

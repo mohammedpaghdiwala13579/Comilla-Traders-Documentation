@@ -35,10 +35,10 @@ input[type="number"] {
 
 /* Print Styling Configuration */
 @media print {
-  /* Set standard A4 page size and optimized symmetrical margins for a highly compact layout */
+  /* Set standard A4 page size and remove default browser headers/footers by setting margin to 0 */
   @page {
     size: A4 portrait;
-    margin: 10mm 12mm 10mm 12mm;
+    margin: 0;
   }
 
   html, body {
@@ -46,7 +46,7 @@ input[type="number"] {
     color: #000000 !important;
     font-size: 8.5pt !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 10mm 12mm 10mm 12mm !important; /* Restore standard printed page margins inside the sheet */
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

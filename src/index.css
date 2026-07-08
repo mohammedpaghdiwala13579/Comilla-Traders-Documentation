@@ -46,7 +46,7 @@ input[type="number"] {
     color: #000000 !important;
     font-size: 8.5pt !important;
     margin: 0 !important;
-    padding: 10mm 12mm 10mm 12mm !important; /* Restore standard printed page margins inside the sheet */
+    padding: 0 12mm 10mm 12mm !important; /* Restore standard printed page margins inside the sheet (top handled by repeating thead spacer) */
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

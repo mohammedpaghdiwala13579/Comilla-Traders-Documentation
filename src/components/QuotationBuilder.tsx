@@ -1508,7 +1508,7 @@ export default function QuotationBuilder() {
       </div>
 
       {/* A4 Standard-compliant visual grid container */}
-      <div className="sheet relative w-full max-w-[210mm] min-h-[297mm] bg-white p-4 sm:p-[12mm] print:p-0 shadow-xl border border-slate-200/60 rounded-xs box-border z-10 mx-auto">
+      <div className="sheet relative w-full max-w-[210mm] min-h-[297mm] bg-white p-3 sm:p-[8mm] print:p-0 shadow-xl border border-slate-200/60 rounded-xs box-border z-10 mx-auto">
         
         {/* Anti-slip Background Watermark Asset */}
         <div className="watermark-container absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0 select-none">
@@ -1526,9 +1526,9 @@ export default function QuotationBuilder() {
           <thead className="print:table-header-group">
             <tr>
               <td className="border-none p-0 m-0">
-                <div className="business-header border-b-2 border-black pb-3 mb-2 flex flex-col sm:flex-row items-center justify-between gap-4 text-black text-left">
-                  <div className="flex items-center gap-4">
-                    <div className="logo-container h-28 w-28 sm:h-32 sm:w-32 shrink-0 rounded-full border-2 border-slate-300 overflow-hidden bg-black flex items-center justify-center shadow-sm">
+                <div className="business-header border-b-2 border-black pb-1.5 mb-1.5 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-black text-left">
+                  <div className="flex items-center gap-3">
+                    <div className="logo-container h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-full border border-slate-300 overflow-hidden bg-black flex items-center justify-center shadow-sm">
                       <img
                         src="https://i.ibb.co.com/gFBkpt8B/Chat-GPT-Image-Apr-23-2026-01-10-13-PM.png"
                         alt="Comilla Traders Logo"
@@ -1536,13 +1536,13 @@ export default function QuotationBuilder() {
                       />
                     </div>
                     <div>
-                      <h1 className="text-[22pt] font-black tracking-tight leading-none text-black">
+                      <h1 className="text-[17pt] sm:text-[19pt] font-black tracking-tight leading-none text-black">
                         COMILLA TRADERS
                       </h1>
-                      <p className="text-[9pt] font-extrabold text-slate-700 tracking-wider uppercase mt-1.5">
+                      <p className="text-[8pt] font-extrabold text-slate-700 tracking-wider uppercase mt-1">
                         Ship Chandler, Marine Supplier & General Merchant
                       </p>
-                      <p className="text-[7.5pt] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                      <p className="text-[7pt] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
                         Mechanical & Electrical Marine Engineering Services
                       </p>
                     </div>
@@ -1571,43 +1571,43 @@ export default function QuotationBuilder() {
                 </div>
 
                 {/* Repeating Document Title on multi-page browser printing */}
-                <div className="doc-title text-center text-[15pt] font-black uppercase tracking-[8px] my-2">
+                <div className="doc-title text-center text-[12pt] sm:text-[13pt] font-black uppercase tracking-[8px] my-1">
                   {docType === "challan" ? "Delivery Challan" : docType === "invoice" ? "Bill / Invoice" : "Quotation"}
                 </div>
 
                 {/* Repeating Metadata Information Input Grid on multi-page browser printing */}
-                <div className="meta-grid grid grid-cols-1 sm:grid-cols-2 gap-4 text-left text-[9pt] mb-3">
-                  <div className="meta-box space-y-2 border border-black p-3 bg-slate-50/30 rounded-xs">
+                <div className="meta-grid grid grid-cols-1 sm:grid-cols-2 gap-2 text-left text-[8.5pt] mb-1.5">
+                  <div className="meta-box space-y-1 border border-black p-2 bg-slate-50/30 rounded-xs">
                     <div>
-                      <label className="block text-[7.5pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Messers:</label>
+                      <label className="block text-[7pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Messers:</label>
                       <input 
                         type="text" 
                         value={messers}
                         onChange={(e) => setMessers(e.target.value)}
                         placeholder="Enter Client/Ship details"
-                        className="w-full border-b border-dotted border-slate-400 focus:border-black font-bold text-[9.5pt] outline-none bg-transparent py-0.5 no-print print:hidden"
+                        className="w-full border-b border-dotted border-slate-400 focus:border-black font-bold text-[9pt] outline-none bg-transparent py-0.5 no-print print:hidden"
                       />
-                      <div className="hidden print:block font-bold text-[9.5pt] border-b border-dotted border-black min-h-[20px] py-0.5 break-words whitespace-pre-wrap leading-tight">
+                      <div className="hidden print:block font-bold text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5 break-words whitespace-pre-wrap leading-tight">
                         {messers || " "}
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[7.5pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Address:</label>
+                      <label className="block text-[7pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Address:</label>
                       <textarea 
                         rows={2}
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
                         placeholder="Enter delivery/billing address"
-                        className="w-full border-b border-dotted border-slate-400 focus:border-black text-[9pt] outline-none bg-transparent resize-none leading-tight py-0.5 no-print print:hidden"
+                        className="w-full border-b border-dotted border-slate-400 focus:border-black text-[8.5pt] outline-none bg-transparent resize-none leading-tight py-0.5 no-print print:hidden"
                       />
-                      <div className="hidden print:block text-[9pt] border-b border-dotted border-black min-h-[40px] py-0.5 break-words whitespace-pre-wrap leading-tight">
+                      <div className="hidden print:block text-[8.5pt] border-b border-dotted border-black min-h-[32px] py-0.5 break-words whitespace-pre-wrap leading-tight">
                         {address || " "}
                       </div>
                     </div>
                   </div>
 
-                  <div className={`meta-box grid border border-black p-3 bg-slate-50/30 rounded-xs ${
-                    docType === "invoice" ? "grid-cols-3 gap-2" : "grid-cols-2 gap-2"
+                  <div className={`meta-box grid border border-black p-2 bg-slate-50/30 rounded-xs ${
+                    docType === "invoice" ? "grid-cols-3 gap-1.5" : "grid-cols-2 gap-1.5"
                   }`}>
                     {docType === "invoice" ? (
                       <>
@@ -1789,18 +1789,18 @@ export default function QuotationBuilder() {
               <td className="border-none p-0 m-0">
 
                 {/* Main Data Sheet Table */}
-                <div className="w-full overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 mt-4">
+                <div className="w-full overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 mt-2">
                   <table className="main-table w-[650px] sm:w-full border-collapse border-[1.5px] border-black table-fixed text-[9pt]">
                     <thead>
                       <tr className="bg-slate-50 text-[8pt]">
-                        <th className={`${docType === 'challan' ? 'w-[7%]' : 'w-[5%]'} border border-black py-1.5 text-center font-bold`}>SL</th>
-                        <th className={`${docType === 'challan' ? 'w-[68%]' : 'w-[45%]'} border border-black py-1.5 text-left px-2 font-bold`}>Description of Marine Items / Spare Parts</th>
-                        <th className={`${docType === 'challan' ? 'w-[12%]' : 'w-[8%]'} border border-black py-1.5 text-center font-bold`}>Qty</th>
-                        <th className={`${docType === 'challan' ? 'w-[13%]' : 'w-[12%]'} border border-black py-1.5 text-center font-bold`}>Unit</th>
+                        <th className={`${docType === 'challan' ? 'w-[7%]' : 'w-[5%]'} border border-black py-1 text-center font-bold`}>SL</th>
+                        <th className={`${docType === 'challan' ? 'w-[68%]' : 'w-[45%]'} border border-black py-1 text-left px-2 font-bold`}>Description of Marine Items / Spare Parts</th>
+                        <th className={`${docType === 'challan' ? 'w-[12%]' : 'w-[8%]'} border border-black py-1 text-center font-bold`}>Qty</th>
+                        <th className={`${docType === 'challan' ? 'w-[13%]' : 'w-[12%]'} border border-black py-1 text-center font-bold`}>Unit</th>
                         {docType !== "challan" && (
                           <>
-                            <th className="w-[12%] border border-black py-1.5 text-center font-bold">Price</th>
-                            <th className="w-[18%] border border-black py-1.5 text-center font-bold">Amount</th>
+                            <th className="w-[12%] border border-black py-1 text-center font-bold">Price</th>
+                            <th className="w-[18%] border border-black py-1 text-center font-bold">Amount</th>
                           </>
                         )}
                       </tr>
@@ -1831,7 +1831,7 @@ export default function QuotationBuilder() {
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, -1)}
                                   onClick={() => handleCellClick(idx, -1)}
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, -1)}
-                                  className={getCellClassName(idx, -1, `border border-black text-center font-mono text-[8.5pt] align-top py-1 transition-all cursor-pointer select-none bg-slate-50/30 text-slate-800`)}
+                                  className={getCellClassName(idx, -1, `border border-black text-center font-mono text-[8pt] align-top py-0.5 transition-all cursor-pointer select-none bg-slate-50/30 text-slate-800`)}
                                 >
                                   {idx + 1}
                                 </td>
@@ -1849,7 +1849,7 @@ export default function QuotationBuilder() {
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, 0)}
                                   onClick={() => handleCellClick(idx, 0)}
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, 0)}
-                                  className={getCellClassName(idx, 0, `border border-black text-left px-1.5 text-[8.5pt] align-top py-1 break-all whitespace-normal transition-all cursor-text ${region ? "bg-amber-50/10" : ""}`)}
+                                  className={getCellClassName(idx, 0, `border border-black text-left px-1.5 text-[8.5pt] align-top py-0.5 break-all whitespace-normal transition-all cursor-text ${region ? "bg-amber-50/10" : ""}`)}
                                 >
                                   <textarea
                                     value={row.desc}
@@ -1896,7 +1896,7 @@ export default function QuotationBuilder() {
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, 1)}
                                   onClick={() => handleCellClick(idx, 1)}
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, 1)}
-                                  className={getCellClassName(idx, 1, "border border-black text-center font-mono text-[9pt] align-top py-1 transition-all cursor-text")}
+                                  className={getCellClassName(idx, 1, "border border-black text-center font-mono text-[8.5pt] align-top py-0.5 transition-all cursor-text")}
                                 >
                                   <textarea
                                     value={row.qty}
@@ -1911,9 +1911,9 @@ export default function QuotationBuilder() {
                                     data-col={1}
                                     rows={1}
                                     style={{ height: "auto", resize: "none" }}
-                                    className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden text-[9pt]"
+                                    className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden text-[8.5pt]"
                                   />
-                                  <div className="hidden print:block whitespace-pre-wrap break-words text-center font-mono text-slate-900 py-0.5 text-[9pt]">
+                                  <div className="hidden print:block whitespace-pre-wrap break-words text-center font-mono text-slate-900 py-0.5 text-[8.5pt]">
                                     {row.qty || " "}
                                   </div>
                                 </td>
@@ -1931,7 +1931,7 @@ export default function QuotationBuilder() {
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, 2)}
                                   onClick={() => handleCellClick(idx, 2)}
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, 2)}
-                                  className={getCellClassName(idx, 2, "border border-black text-center text-[9pt] align-top py-1 transition-all cursor-text")}
+                                  className={getCellClassName(idx, 2, "border border-black text-center text-[8.5pt] align-top py-0.5 transition-all cursor-text")}
                                 >
                                   <textarea
                                     value={row.unit}
@@ -1946,9 +1946,9 @@ export default function QuotationBuilder() {
                                     data-col={2}
                                     rows={1}
                                     style={{ height: "auto", resize: "none" }}
-                                    className="w-full text-center border-none outline-none bg-transparent px-0 text-slate-800 align-top overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden text-[9pt]"
+                                    className="w-full text-center border-none outline-none bg-transparent px-0 text-slate-800 align-top overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden text-[8.5pt]"
                                   />
-                                  <div className="hidden print:block whitespace-pre-wrap break-words text-center text-slate-900 py-0.5 text-[9pt]">
+                                  <div className="hidden print:block whitespace-pre-wrap break-words text-center text-slate-900 py-0.5 text-[8.5pt]">
                                     {row.unit || " "}
                                   </div>
                                 </td>
@@ -1966,7 +1966,7 @@ export default function QuotationBuilder() {
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, 3)}
                                   onClick={() => handleCellClick(idx, 3)}
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, 3)}
-                                  className={getCellClassName(idx, 3, "border border-black text-center font-mono text-[9pt] align-top py-1 transition-all cursor-text")}
+                                  className={getCellClassName(idx, 3, "border border-black text-center font-mono text-[8.5pt] align-top py-0.5 transition-all cursor-text")}
                                 >
                                   <textarea
                                     value={row.price}
@@ -1981,9 +1981,9 @@ export default function QuotationBuilder() {
                                     data-col={3}
                                     rows={1}
                                     style={{ height: "auto", resize: "none" }}
-                                    className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden text-[9pt]"
+                                    className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden text-[8.5pt]"
                                   />
-                                  <div className="hidden print:block whitespace-pre-wrap break-words text-center font-mono text-slate-900 py-0.5 text-[9pt]">
+                                  <div className="hidden print:block whitespace-pre-wrap break-words text-center font-mono text-slate-900 py-0.5 text-[8.5pt]">
                                     {row.price || " "}
                                   </div>
                                 </td>
@@ -1996,13 +1996,13 @@ export default function QuotationBuilder() {
                                 colSpan={colSpan}
                                 rowSpan={rowSpan}
                                 onMouseDown={(e) => handleCellMouseDown(e, idx, 4)}
-                                onMouseEnter={() => handleCellMouseEnter(idx, 4)}
-                                onMouseUp={(e) => handleCellMouseUp(e, idx, 4)}
+                                  onMouseEnter={() => handleCellMouseEnter(idx, 4)}
+                                  onMouseUp={(e) => handleCellMouseUp(e, idx, 4)}
                                 onClick={() => handleCellClick(idx, 4)}
                                 onContextMenu={(e) => handleCellContextMenu(e, idx, 4)}
-                                className={getCellClassName(idx, 4, "border border-black text-right pr-2 font-mono text-[9pt] font-semibold text-slate-800 align-top py-1 transition-all cursor-pointer")}
+                                className={getCellClassName(idx, 4, "border border-black text-right pr-2 font-mono text-[8.5pt] font-semibold text-slate-800 align-top py-0.5 transition-all cursor-pointer")}
                               >
-                                <div className="whitespace-normal break-all leading-tight text-[9pt]">
+                                <div className="whitespace-normal break-all leading-tight text-[8.5pt]">
                                   {row.amount > 0 ? row.amount.toLocaleString("en-US", { minimumFractionDigits: 2 }) : "0.00"}
                                 </div>
                               </td>
@@ -2036,27 +2036,27 @@ export default function QuotationBuilder() {
                 </div>
 
                 {/* Bottom closing wraps, sums, signatures */}
-                <div className="closing-wrap mt-2.5">
+                <div className="closing-wrap mt-1.5">
                   {docType !== "challan" && (
-                    <table className="closing-row w-full border-collapse border-2 border-black mt-2.5 bg-white text-black z-10 relative">
+                    <table className="closing-row w-full border-collapse border-2 border-black mt-1.5 bg-white text-black z-10 relative">
                       <tbody>
                         {docType === "invoice" ? (
                           <>
                             <tr className="align-stretch">
-                              <td rowSpan={4} className="amount-words-container w-1/2 border-r-2 border-black p-2 bg-slate-50/50 text-left align-middle">
-                                <span className="font-extrabold text-[7pt] text-slate-700 uppercase tracking-wider block mb-0.5">
+                              <td rowSpan={4} className="amount-words-container w-1/2 border-r-2 border-black p-1.5 bg-slate-50/50 text-left align-middle">
+                                <span className="font-extrabold text-[6.5pt] text-slate-700 uppercase tracking-wider block mb-0.5">
                                   Amount in Words:
                                 </span>
-                                <span className="text-[8.5pt] font-mono italic text-black font-black uppercase leading-tight">
+                                <span className="text-[8pt] font-mono italic text-black font-black uppercase leading-tight">
                                   {numberToWords(calculatedGrandTotal)}
                                 </span>
                               </td>
                               <td className="w-1/2 p-0 border-b border-black align-stretch">
-                                <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
-                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
+                                <div className="flex flex-row items-stretch h-full min-h-[24px] w-full">
+                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     SUBTOTAL
                                   </div>
-                                  <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-black flex items-center justify-end px-2 py-1 leading-tight">
+                                  <div className="total-val flex-grow text-right pr-4 text-[9pt] font-mono font-black flex items-center justify-end px-2 py-0.5 leading-tight">
                                     {rowsTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                                   </div>
                                 </div>
@@ -2064,8 +2064,8 @@ export default function QuotationBuilder() {
                             </tr>
                             <tr className="align-stretch">
                               <td className="w-1/2 p-0 border-b border-black align-stretch">
-                                <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
-                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
+                                <div className="flex flex-row items-stretch h-full min-h-[24px] w-full">
+                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     <div className="flex items-center justify-end gap-1.5 w-full pl-2">
                                       <span>VAT</span>
                                       <div className="flex items-center gap-0.5 no-print print:hidden shrink-0">
@@ -2085,7 +2085,7 @@ export default function QuotationBuilder() {
                                       <span className="hidden print:inline">({parsedVatPercent}%)</span>
                                     </div>
                                   </div>
-                                  <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-semibold flex items-center justify-end px-2 py-1 leading-tight">
+                                  <div className="total-val flex-grow text-right pr-4 text-[9pt] font-mono font-semibold flex items-center justify-end px-2 py-0.5 leading-tight">
                                     {vatAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                                   </div>
                                 </div>
@@ -2093,8 +2093,8 @@ export default function QuotationBuilder() {
                             </tr>
                             <tr className="align-stretch">
                               <td className="w-1/2 p-0 border-b border-black align-stretch">
-                                <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
-                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
+                                <div className="flex flex-row items-stretch h-full min-h-[24px] w-full">
+                                  <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     <div className="flex items-center justify-end gap-1.5 w-full pl-2">
                                       <span>TRANS.</span>
                                       <div className="flex items-center no-print print:hidden shrink-0">
@@ -2113,7 +2113,7 @@ export default function QuotationBuilder() {
                                       </div>
                                     </div>
                                   </div>
-                                  <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-semibold flex items-center justify-end px-2 py-1 leading-tight">
+                                  <div className="total-val flex-grow text-right pr-4 text-[9pt] font-mono font-semibold flex items-center justify-end px-2 py-0.5 leading-tight">
                                     {parsedTransportationFee.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                                   </div>
                                 </div>
@@ -2121,11 +2121,11 @@ export default function QuotationBuilder() {
                             </tr>
                             <tr className="align-stretch">
                               <td className="w-1/2 p-0 align-stretch">
-                                <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
-                                  <div className="total-lbl bg-indigo-50/40 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[9pt] font-black uppercase flex items-center justify-end tracking-wider text-indigo-950">
+                                <div className="flex flex-row items-stretch h-full min-h-[24px] w-full">
+                                  <div className="total-lbl bg-indigo-50/40 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-black uppercase flex items-center justify-end tracking-wider text-indigo-950">
                                     GRAND TOTAL
                                   </div>
-                                  <div className="total-val flex-grow text-right pr-4 text-[10.5pt] font-mono font-black flex items-center justify-end px-2 py-1 leading-tight text-indigo-950">
+                                  <div className="total-val flex-grow text-right pr-4 text-[10pt] font-mono font-black flex items-center justify-end px-2 py-0.5 leading-tight text-indigo-950">
                                     {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                                   </div>
                                 </div>
@@ -2134,20 +2134,20 @@ export default function QuotationBuilder() {
                           </>
                         ) : (
                           <tr className="align-stretch">
-                            <td className="amount-words-container w-1/2 border-r-2 border-black p-2 bg-slate-50/50 text-left align-middle">
-                              <span className="font-extrabold text-[7pt] text-slate-700 uppercase tracking-wider block mb-0.5">
+                            <td className="amount-words-container w-1/2 border-r-2 border-black p-1.5 bg-slate-50/50 text-left align-middle">
+                              <span className="font-extrabold text-[6.5pt] text-slate-700 uppercase tracking-wider block mb-0.5">
                                 Amount in Words:
                               </span>
-                              <span className="text-[8.5pt] font-mono italic text-black font-black uppercase leading-tight">
+                              <span className="text-[8pt] font-mono italic text-black font-black uppercase leading-tight">
                                 {numberToWords(calculatedGrandTotal)}
                               </span>
                             </td>
                             <td className="w-1/2 p-0 align-stretch">
-                              <div className="flex flex-row items-stretch h-full min-h-[40px] w-full">
-                                <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[9pt] font-bold uppercase flex items-center justify-end">
+                              <div className="flex flex-row items-stretch h-full min-h-[28px] w-full">
+                                <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end">
                                   TOTAL
                                 </div>
-                                <div className="total-val flex-grow text-right pr-4 text-[10pt] font-mono font-black flex items-center justify-end px-2 py-1 leading-tight">
+                                <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-black flex items-center justify-end px-2 py-0.5 leading-tight">
                                   {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                                 </div>
                               </div>
@@ -2159,29 +2159,29 @@ export default function QuotationBuilder() {
                   )}
 
                   {/* Signatures & Stamps placing */}
-                  <div className="sig-section mt-8 flex flex-row justify-between gap-6 sm:gap-10">
-                    <div className="sig-box w-full sm:w-[220px] print:w-[220px] text-center flex flex-col justify-end h-[90px]">
-                      <div className="sig-line border-t-[1.5px] border-black pt-1.5 text-[9pt] font-bold">
+                  <div className="sig-section mt-5 flex flex-row justify-between gap-6 sm:gap-10">
+                    <div className="sig-box w-full sm:w-[220px] print:w-[220px] text-center flex flex-col justify-end h-[72px]">
+                      <div className="sig-line border-t-[1.5px] border-black pt-1 text-[8.5pt] font-bold">
                         Receiver's Signature
                       </div>
                     </div>
                     
                     {/* Authorized stamp hidden for Challan block */}
                     {docType !== "challan" && (
-                      <div className="sig-box w-full sm:w-[220px] print:w-[220px] text-center flex flex-col justify-between h-[90px] relative">
-                        <div className="sig-title text-[9pt] font-bold text-black">For Comilla Traders</div>
+                      <div className="sig-box w-full sm:w-[220px] print:w-[220px] text-center flex flex-col justify-between h-[72px] relative">
+                        <div className="sig-title text-[8.5pt] font-bold text-black">For Comilla Traders</div>
                         
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 select-none pb-1">
                           <img 
                             src="https://i.ibb.co.com/jZswrtn6/image-4-removebg-preview.png"
                             alt="Comilla Traders Stamp"
                             referrerPolicy="no-referrer"
-                            className="w-[110px] h-[110px] object-contain select-none"
+                            className="w-[90px] h-[90px] object-contain select-none"
                             style={{ printColorAdjust: "exact" }}
                           />
                         </div>
 
-                        <div className="sig-line border-t-[1.5px] border-black pt-1.5 text-[9pt] font-bold relative z-20">
+                        <div className="sig-line border-t-[1.5px] border-black pt-1 text-[8.5pt] font-bold relative z-20">
                           Authorized Signature
                         </div>
                       </div>

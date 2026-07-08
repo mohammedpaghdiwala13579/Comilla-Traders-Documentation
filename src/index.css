@@ -46,7 +46,7 @@ input[type="number"] {
     color: #000000 !important;
     font-size: 8.5pt !important;
     margin: 0 !important;
-    padding: 10mm 12mm 10mm 12mm !important; /* Restore standard printed page margins inside the sheet */
+    padding: 6mm 8mm 6mm 8mm !important; /* Restore standard printed page margins inside the sheet */
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -134,8 +134,8 @@ input[type="number"] {
     width: 100% !important;
     border-bottom-width: 1.5px !important;
     border-bottom-color: #000000 !important;
-    padding-bottom: 6px !important;
-    margin-bottom: 8px !important;
+    padding-bottom: 3px !important;
+    margin-bottom: 4px !important;
     clear: both !important;
   }
 
@@ -154,8 +154,8 @@ input[type="number"] {
   }
 
   .logo-container {
-    height: 76px !important;
-    width: 76px !important;
+    height: 60px !important;
+    width: 60px !important;
     display: inline-block !important;
     vertical-align: middle !important;
     margin-right: 12px !important;
@@ -164,13 +164,13 @@ input[type="number"] {
   .logo-container + div {
     display: inline-block !important;
     vertical-align: middle !important;
-    width: calc(100% - 92px) !important;
+    width: calc(100% - 76px) !important;
   }
 
   .doc-title {
-    margin-top: 2px !important;
-    margin-bottom: 4px !important;
-    font-size: 13pt !important;
+    margin-top: 1px !important;
+    margin-bottom: 2px !important;
+    font-size: 11pt !important;
     letter-spacing: 6px !important;
     text-align: center !important;
     clear: both !important;
@@ -179,9 +179,9 @@ input[type="number"] {
   .meta-grid {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
+    gap: 4px !important;
     width: 100% !important;
-    margin-bottom: 4px !important;
+    margin-bottom: 2px !important;
     clear: both !important;
   }
 
@@ -189,7 +189,7 @@ input[type="number"] {
     display: block !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    padding: 5px 6px !important;
+    padding: 3px 4px !important;
     border: 1px solid #000000 !important;
     margin: 0 !important;
   }
@@ -288,7 +288,7 @@ input[type="number"] {
 
   .sig-section {
     page-break-inside: avoid !important;
-    margin-top: 24px !important; /* tighter vertical gap */
+    margin-top: 16px !important; /* tighter vertical gap */
   }
 
   /* Force background colors and image watermarks to show */

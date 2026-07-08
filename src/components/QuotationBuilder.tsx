@@ -1521,15 +1521,12 @@ export default function QuotationBuilder() {
           />
         </div>
 
-         {/* Outer Layout Table ensuring thead repeats company details on multi-page browser printing */}
-         <table className="print-outer-layout-table w-full border-none p-0 m-0 relative z-10">
-           <thead className="print:table-header-group">
-             <tr>
-               <td className="border-none p-0 m-0">
-                 {/* Repeating top spacer acting as margin on every printed page */}
-                 <div className="hidden print:block h-[12mm]" />
-                 
-                 <div className="business-header border-b-2 border-black pb-3 mb-2 flex flex-col sm:flex-row items-center justify-between gap-4 text-black text-left">
+        {/* Outer Layout Table ensuring thead repeats company details on multi-page browser printing */}
+        <table className="print-outer-layout-table w-full border-none p-0 m-0 relative z-10">
+          <thead className="print:table-header-group">
+            <tr>
+              <td className="border-none p-0 m-0">
+                <div className="business-header border-b-2 border-black pb-3 mb-2 flex flex-col sm:flex-row items-center justify-between gap-4 text-black text-left">
                   <div className="flex items-center gap-4">
                     <div className="logo-container h-28 w-28 sm:h-32 sm:w-32 shrink-0 rounded-full border-2 border-slate-300 overflow-hidden bg-black flex items-center justify-center shadow-sm">
                       <img
@@ -2099,7 +2096,7 @@ export default function QuotationBuilder() {
                                 <div className="flex flex-row items-stretch h-full min-h-[30px] w-full">
                                   <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end tracking-wider">
                                     <div className="flex items-center justify-end gap-1.5 w-full pl-2">
-                                      <span>TRANSPORTATION FEE</span>
+                                      <span>TRANS.</span>
                                       <div className="flex items-center no-print print:hidden shrink-0">
                                         <input
                                           type="text"

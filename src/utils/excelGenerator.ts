@@ -611,5 +611,13 @@ export const generateExcelWorkbook = async (
     }
   }
 
+  // Footer Disclaimer Notice
+  const noticeRow = sigRow + 2;
+  worksheet.mergeCells(`A${noticeRow}:${lastColLetter}${noticeRow}`);
+  const noticeCell = worksheet.getCell(`A${noticeRow}`);
+  noticeCell.value = "ITEMS ONCE SOLD ARE NON-RETURNABLE AND NON-EXCHANGEABLE.";
+  noticeCell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "000000" } };
+  noticeCell.alignment = { vertical: "middle", horizontal: "center" };
+
   return workbook;
 };

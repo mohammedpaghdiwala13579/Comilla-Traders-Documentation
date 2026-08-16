@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
-import { Download, Printer, Calendar, Save, Trash2, Plus, Check, RefreshCw, Copy, FilePlus, Heading, X } from "lucide-react";
+import { Download, Printer, Calendar, Save, Trash2, Plus, Check, RefreshCw, Copy, X } from "lucide-react";
 import { db } from "../lib/firebase";
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { numberToWords } from "../utils/numberToWords";
@@ -919,9 +919,9 @@ export default function QuotationBuilder() {
     
     let highlightClass = "";
     if (isActive) {
-      highlightClass = "outline outline-2 outline-indigo-600 outline-offset-[-2px] bg-indigo-50/15 z-10 relative";
+      highlightClass = "outline outline-2 outline-indigo-600 outline-offset-[-2px] bg-indigo-50/15 print:!outline-none print:!bg-transparent print:!shadow-none z-10 print:z-auto relative";
     } else if (isSelected) {
-      highlightClass = "outline outline-1 outline-indigo-400 outline-offset-[-1px] bg-indigo-50/25 z-10 relative shadow-3xs";
+      highlightClass = "outline outline-1 outline-indigo-400 outline-offset-[-1px] bg-indigo-50/25 print:!outline-none print:!bg-transparent print:!shadow-none z-10 print:z-auto relative shadow-3xs";
     }
     
     return `${baseClasses} ${highlightClass}`;
@@ -1169,7 +1169,15 @@ export default function QuotationBuilder() {
   };
 
   const handlePrint = () => {
-    window.print();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setSelectedCell(null);
+    setSelectionStart(null);
+    setSelectionEnd(null);
+    setTimeout(() => {
+      window.print();
+    }, 50);
   };
 
   const handleDownloadPDF = () => {
@@ -1306,7 +1314,7 @@ export default function QuotationBuilder() {
   return (
     <div className="quotation-container relative min-h-screen flex flex-col items-center bg-slate-50 py-5 overflow-x-auto text-[#000] font-sans antialiased w-full">
       
-      {/* Mini App Toolbar */}
+      {/* Mini App Toolbar - Consolidated Single Bar */}
       <div className="top-toolbar no-print print:hidden w-full max-w-[210mm] mb-3 flex flex-col md:flex-row justify-between items-center gap-2 px-3 sm:px-0 z-10">
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between md:justify-start">
           <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-sm shrink-0">
@@ -1437,6 +1445,25 @@ export default function QuotationBuilder() {
               </>
             )}
           </button>
+
+          <button 
+            onClick={handleDownloadExcel}
+            disabled={isGeneratingExcel}
+            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px] shadow-sm hover:shadow"
+            title="Export Excel (.xlsx)"
+          >
+            <Download className="h-3 w-3" />
+            <span>{isGeneratingExcel ? "GENERATING..." : "EXPORT EXCEL"}</span>
+          </button>
+
+          <button 
+            onClick={handlePrint}
+            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px] shadow-sm hover:shadow"
+            title="Print or Save as PDF"
+          >
+            <Printer className="h-3 w-3" />
+            <span>PRINT A4</span>
+          </button>
         </div>
       </div>
 
@@ -1462,50 +1489,6 @@ export default function QuotationBuilder() {
           </div>
         </div>
       )}
-
-      {/* Spreadsheet Formula Toolbar Bar */}
-      <div className="excel-editor-container no-print print:hidden w-full max-w-[210mm] bg-white border border-slate-200 rounded-xl shadow-sm mb-3 overflow-hidden text-slate-800 z-10 animate-in fade-in slide-in-from-top-2 duration-300">
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 border-b border-slate-100 px-3 py-1.5 text-xs select-none">
-          <div className="font-semibold text-[11px] text-indigo-700 mr-2 font-mono flex items-center gap-1">
-            <span className="bg-indigo-600 text-white font-black text-[8.5px] px-1 py-0.5 rounded-xs leading-none shadow-xs">田</span>
-            <span className="font-extrabold tracking-tight font-sans text-[10.5px]">ComillaSheets v4.2</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={toggleMergeSelectedRange}
-            title="Merge or unmerge selected grid cells"
-            className="px-2.5 py-1 hover:bg-indigo-100 hover:border-indigo-300 rounded-md cursor-pointer transition-all font-bold text-indigo-700 text-[10px] flex items-center gap-1 border border-indigo-200 bg-indigo-50/75 shadow-3xs"
-          >
-            <Heading className="h-3 w-3" />
-            <span>
-              {(() => {
-                if (!selectionStart) return "Merge";
-                const existing = getMergeRegionAt(selectionStart.rowIndex, selectionStart.colIndex);
-                return existing ? "Unmerge Cells" : "Merge Selected";
-              })()}
-            </span>
-          </button>
-
-          <div className="ml-auto flex items-center gap-1.5">
-            <button 
-              onClick={handleDownloadExcel}
-              disabled={isGeneratingExcel}
-              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[9px] shadow-sm shadow-emerald-100"
-            >
-              <Download className="h-3 w-3" />
-              <span>{isGeneratingExcel ? "GENERATING EXCEL..." : "EXPORT EXCEL"}</span>
-            </button>
-            <button 
-              onClick={handlePrint}
-              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[9px] shadow-sm shadow-indigo-100"
-            >
-              <Printer className="h-3 w-3" />
-              <span>PRINT A4</span>
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* A4 Standard-compliant visual grid container */}
       <div className="sheet relative w-full max-w-[210mm] min-h-[297mm] bg-white p-3 sm:p-[8mm] print:p-0 shadow-xl border border-slate-200/60 rounded-xs box-border z-10 mx-auto">
@@ -2186,6 +2169,11 @@ export default function QuotationBuilder() {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* Non-returnable & non-exchangeable notice */}
+                  <div className="doc-footer-notice text-center mt-3 pt-1 text-[12px] leading-[18px] font-bold text-black uppercase tracking-wider">
+                    ITEMS ONCE SOLD ARE NON-RETURNABLE AND NON-EXCHANGEABLE.
                   </div>
                 </div>
               </td>

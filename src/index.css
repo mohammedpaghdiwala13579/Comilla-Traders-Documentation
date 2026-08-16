@@ -291,6 +291,19 @@ input[type="number"] {
     margin-top: 16px !important; /* tighter vertical gap */
   }
 
+  /* Remove any cell outlines, focus borders, and selection highlights on print */
+  .sheet,
+  .sheet *,
+  .main-table,
+  .main-table *,
+  .main-table th,
+  .main-table td,
+  textarea,
+  input {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
   /* Force background colors and image watermarks to show */
   * {
     -webkit-print-color-adjust: exact !important;
@@ -306,6 +319,17 @@ input[type="number"] {
 .is-generating-pdf footer,
 .is-generating-pdf header {
   display: none !important;
+}
+
+.is-generating-pdf .sheet,
+.is-generating-pdf .sheet *,
+.is-generating-pdf .main-table *,
+.is-generating-pdf .main-table td,
+.is-generating-pdf .main-table th,
+.is-generating-pdf textarea,
+.is-generating-pdf input {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .is-generating-pdf .print\:hidden {

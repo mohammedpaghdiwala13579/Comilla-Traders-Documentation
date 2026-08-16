@@ -150,39 +150,19 @@ export default function App() {
         </div>
       )}
 
-      {/* 2. Portal Top Header banner */}
-      <header className="no-print bg-white text-slate-800 border-b border-slate-200 py-3.5 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm z-10">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg border border-slate-200 overflow-hidden bg-white flex items-center justify-center shrink-0 p-0.5 shadow-sm">
-            <img
-              src="https://i.ibb.co.com/gFBkpt8B/Chat-GPT-Image-Apr-23-2026-01-10-13-PM.png"
-              alt="Comilla Traders Logo"
-              className="w-full h-full object-cover rounded"
-            />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-tight text-slate-900 flex items-center gap-1.5 uppercase font-display">
-              COMILLA TRADERS
-              <span className="bg-indigo-50 text-indigo-700 text-[9px] font-semibold px-1.5 py-0.5 rounded border border-indigo-200">QUOTATION TERMINAL</span>
-            </h1>
-            <p className="text-[10px] text-slate-500 font-medium tracking-wide">Professional Ship Chandler Quotation &amp; Delivery Challan Terminal</p>
-          </div>
-        </div>
-
-        {/* Permanent Quick-Launch / Install Action for Standalone App */}
-        {!isStandalone && (
-          <div className="flex items-center gap-2">
-            <button
-              id="btn-header-install"
-              onClick={handleInstallClick}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 border border-indigo-200 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-            >
-              <Download className="h-3.5 w-3.5 text-indigo-600 animate-bounce" />
-              <span>Install App</span>
-            </button>
-          </div>
-        )}
-      </header>
+      {/* 2. Top Install Action */}
+      {!isStandalone && (
+        <header className="no-print bg-white/80 backdrop-blur-xs border-b border-slate-200/60 py-2 px-4 sm:px-6 flex justify-end items-center shadow-xs z-10">
+          <button
+            id="btn-header-install"
+            onClick={handleInstallClick}
+            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 border border-indigo-200 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+          >
+            <Download className="h-3.5 w-3.5 text-indigo-600 animate-bounce" />
+            <span>Install App</span>
+          </button>
+        </header>
+      )}
 
       {/* 3. iOS / Safari / Manual Install Guidance Modal */}
       {showGuidance && (

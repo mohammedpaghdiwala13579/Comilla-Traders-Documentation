@@ -35,10 +35,13 @@ input[type="number"] {
 
 /* Print Styling Configuration */
 @media print {
-  /* Set standard A4 page size and remove default browser headers/footers by setting margin to 0 */
+  /* Set standard A4 page size with consistent top blank space and margins on every printed page */
   @page {
     size: A4 portrait;
-    margin: 0;
+    margin-top: 15mm;
+    margin-bottom: 10mm;
+    margin-left: 8mm;
+    margin-right: 8mm;
   }
 
   html, body {
@@ -46,7 +49,7 @@ input[type="number"] {
     color: #000000 !important;
     font-size: 8.5pt !important;
     margin: 0 !important;
-    padding: 6mm 8mm 6mm 8mm !important; /* Restore standard printed page margins inside the sheet */
+    padding: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

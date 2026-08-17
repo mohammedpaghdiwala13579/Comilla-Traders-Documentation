@@ -2129,11 +2129,11 @@ export default function QuotationBuilder() {
                               </span>
                             </td>
                             <td className="w-1/2 p-0 align-stretch">
-                              <div className="flex flex-row items-stretch h-full min-h-[28px] w-full">
+                              <div className="flex flex-row items-stretch h-full min-h-[52.5px] w-full">
                                 <div className="total-lbl bg-slate-50 w-[170px] shrink-0 pr-2 text-right border-r-2 border-black text-[8.5pt] font-bold uppercase flex items-center justify-end">
                                   TOTAL
                                 </div>
-                                <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-black flex items-center justify-end px-2 py-0.5 leading-tight">
+                                <div className="total-val flex-grow text-right pr-4 text-[9.5pt] font-mono font-black flex items-center justify-end px-2 py-0.5 leading-tight min-h-[52.5px]">
                                   {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                                 </div>
                               </div>

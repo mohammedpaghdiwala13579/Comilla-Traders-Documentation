@@ -1509,6 +1509,9 @@ export default function QuotationBuilder() {
           <thead className="print:table-header-group">
             <tr>
               <td className="border-none p-0 m-0">
+                {/* Top blank margin repeating on every printed page */}
+                <div className="print-page-top-spacer hidden print:block h-[12mm] w-full" />
+                
                 <div className="business-header border-b-2 border-black pb-1.5 mb-1.5 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-black text-left">
                   <div className="flex items-center gap-3">
                     <div className="logo-container h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-full border border-slate-300 overflow-hidden bg-black flex items-center justify-center shadow-sm">

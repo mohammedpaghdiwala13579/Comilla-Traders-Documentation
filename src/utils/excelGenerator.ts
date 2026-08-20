@@ -48,19 +48,19 @@ export const generateExcelWorkbook = async (
   // Set column widths and keys
   if (docType === "challan") {
     worksheet.columns = [
-      { key: "A", width: 8 },   // SL
-      { key: "B", width: 62 },  // Description
-      { key: "C", width: 15 },  // Qty
-      { key: "D", width: 20 },  // Unit
+      { key: "A", width: 7 },   // SL
+      { key: "B", width: 72 },  // Description
+      { key: "C", width: 14 },  // Qty
+      { key: "D", width: 16 },  // Unit
     ];
   } else {
     worksheet.columns = [
-      { key: "A", width: 8 },   // SL
-      { key: "B", width: 55 },  // Description
-      { key: "C", width: 10 },  // Qty
-      { key: "D", width: 12 },  // Unit
+      { key: "A", width: 6.5 }, // SL
+      { key: "B", width: 62 },  // Description
+      { key: "C", width: 9 },   // Qty
+      { key: "D", width: 11 },  // Unit
       { key: "E", width: 12 },  // Price
-      { key: "F", width: 15 },  // Amount
+      { key: "F", width: 14 },  // Amount
     ];
   }
 

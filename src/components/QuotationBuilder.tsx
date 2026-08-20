@@ -1973,14 +1973,14 @@ export default function QuotationBuilder() {
                   <table className="main-table w-[650px] sm:w-full border-collapse border-[1.5px] border-black table-fixed text-[9pt]">
                     <thead>
                       <tr className="bg-slate-50 text-[8pt]">
-                        <th className={`${docType === 'challan' ? 'w-[7%]' : 'w-[5%]'} border border-black py-1 text-center font-bold`}>SL</th>
-                        <th className={`${docType === 'challan' ? 'w-[68%]' : 'w-[45%]'} border border-black py-1 text-left px-2 font-bold`}>Description of Marine Items / Spare Parts</th>
-                        <th className={`${docType === 'challan' ? 'w-[12%]' : 'w-[8%]'} border border-black py-1 text-center font-bold`}>Qty</th>
-                        <th className={`${docType === 'challan' ? 'w-[13%]' : 'w-[12%]'} border border-black py-1 text-center font-bold`}>Unit</th>
+                        <th className={`${docType === 'challan' ? 'w-[6%]' : 'w-[4.5%]'} border border-black py-1 text-center font-bold`}>SL</th>
+                        <th className={`${docType === 'challan' ? 'w-[73%]' : 'w-[54.5%]'} border border-black py-1 text-left px-3 font-bold`}>Description of Marine Items / Spare Parts</th>
+                        <th className={`${docType === 'challan' ? 'w-[10%]' : 'w-[7%]'} border border-black py-1 text-center font-bold`}>Qty</th>
+                        <th className={`${docType === 'challan' ? 'w-[11%]' : 'w-[9%]'} border border-black py-1 text-center font-bold`}>Unit</th>
                         {docType !== "challan" && (
                           <>
-                            <th className="w-[12%] border border-black py-1 text-center font-bold">Price</th>
-                            <th className="w-[18%] border border-black py-1 text-center font-bold">Amount</th>
+                            <th className="w-[11%] border border-black py-1 text-center font-bold">Price</th>
+                            <th className="w-[14%] border border-black py-1 text-center font-bold">Amount</th>
                           </>
                         )}
                       </tr>
@@ -2029,7 +2029,7 @@ export default function QuotationBuilder() {
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, 0)}
                                   onClick={() => handleCellClick(idx, 0)}
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, 0)}
-                                  className={getCellClassName(idx, 0, `border border-black text-left px-1.5 text-[8.5pt] align-top py-0.5 break-all whitespace-normal transition-all cursor-text ${region ? "bg-amber-50/10" : ""}`)}
+                                  className={getCellClassName(idx, 0, `border border-black text-left px-2 text-[8.5pt] align-top py-0.5 whitespace-normal transition-all cursor-text ${region ? "bg-amber-50/10" : ""}`)}
                                 >
                                   <textarea
                                     value={row.desc}
@@ -2056,9 +2056,9 @@ export default function QuotationBuilder() {
                                     data-col={0}
                                     rows={1}
                                     style={{ height: "auto", resize: "none" }}
-                                    className={`w-full text-left border-none outline-none bg-transparent px-0 text-slate-800 text-[8.5pt] leading-tight block overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden`}
+                                    className={`w-full text-left border-none outline-none bg-transparent px-0 text-slate-800 text-[8.5pt] leading-snug block overflow-hidden py-0.5 whitespace-pre-wrap break-words no-print print:hidden`}
                                   />
-                                  <div className="hidden print:block whitespace-pre-wrap break-words text-slate-900 leading-tight py-0.5 text-[8.5pt]">
+                                  <div className="hidden print:block whitespace-pre-wrap break-words text-left text-slate-900 leading-snug py-0.5 text-[8.5pt]">
                                     {row.desc || " "}
                                   </div>
                                 </td>

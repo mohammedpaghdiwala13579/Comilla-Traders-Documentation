@@ -32,7 +32,7 @@ const getBase64Image = async (url: string): Promise<{ base64: string; ext: strin
  */
 export const calculateItemVisualLines = (desc: string, isChallan: boolean): number => {
   if (!desc || !desc.trim()) return 1;
-  const maxCharsPerLine = isChallan ? 46 : 38;
+  const maxCharsPerLine = isChallan ? 48 : 42;
   const parts = desc.split(/\r?\n/);
   let lines = 0;
   for (const part of parts) {
@@ -47,13 +47,13 @@ export const calculateItemVisualLines = (desc: string, isChallan: boolean): numb
 };
 
 /**
- * Computes exact Excel row height (in points) ensuring text is 100% visible with zero clipping.
+ * Computes exact Excel row height (in points) ensuring 25 items fit cleanly on an A4 page.
  */
 export const getItemRowHeight = (visualLines: number): number => {
-  if (visualLines <= 1) return 20;
-  if (visualLines === 2) return 33;
-  if (visualLines === 3) return 46;
-  return 20 + (visualLines - 1) * 14;
+  if (visualLines <= 1) return 17.5;
+  if (visualLines === 2) return 29;
+  if (visualLines === 3) return 40;
+  return 17.5 + (visualLines - 1) * 12;
 };
 
 export interface ExcelPageChunk {
@@ -63,22 +63,24 @@ export interface ExcelPageChunk {
 }
 
 /**
- * Dynamically paginates items so each page never exceeds A4 height capacity.
- * Automatically distributes multi-line items across multiple pages when capacity is reached.
+ * Dynamically paginates items so up to 25 items fit per page perfectly on standard A4.
+ * When items reach maximum page height capacity (e.g. multi-line entries),
+ * remaining items are automatically transferred to the next page.
  */
 export const paginateRowsForExcel = (
   allRows: QuotationRow[],
   docType: "quotation" | "challan" | "invoice"
 ): ExcelPageChunk[] => {
-  // If no rows, produce 1 empty sheet
+  // If no rows, produce 1 standard empty sheet
   if (allRows.length === 0) {
     return [{ rows: [], startSlIndex: 1, isLastPage: true }];
   }
 
   const isChallan = docType === "challan";
-  const REGULAR_PAGE_BUDGET = 420; // vertical points for items
-  const LAST_PAGE_BUDGET = isChallan ? 420 : 340; // reserved space for totals & words block
-  const MAX_ITEMS_PER_PAGE = 24; // maximum items limit even if all 1-liners
+  const isInvoice = docType === "invoice";
+  const REGULAR_PAGE_BUDGET = 460; // vertical points budget for items
+  const LAST_PAGE_BUDGET = isChallan ? 460 : isInvoice ? 410 : 445; // budget allowing totals & signature block
+  const MAX_ITEMS_PER_PAGE = 25; // Standard 25 items capacity per page
 
   const chunks: ExcelPageChunk[] = [];
   let currentChunk: QuotationRow[] = [];
@@ -93,7 +95,7 @@ export const paginateRowsForExcel = (
     const isPotentialLastItem = i === allRows.length - 1;
     const budgetForCurrentPage = isPotentialLastItem ? LAST_PAGE_BUDGET : REGULAR_PAGE_BUDGET;
 
-    // Check if adding this item exceeds budget or max items limit
+    // Check if adding this item exceeds budget or max 25 items limit
     if (
       currentChunk.length > 0 &&
       (currentHeight + rowHeight > budgetForCurrentPage || currentChunk.length >= MAX_ITEMS_PER_PAGE)
@@ -113,7 +115,7 @@ export const paginateRowsForExcel = (
   }
 
   if (currentChunk.length > 0) {
-    // If last chunk alone exceeds the last page budget (due to multi-line items + totals block)
+    // If last chunk alone exceeds the last page budget (due to several long multi-line items)
     if (!isChallan && currentHeight > LAST_PAGE_BUDGET && currentChunk.length > 1) {
       let splitIdx = currentChunk.length - 1;
       let runningHeight = 0;
@@ -513,8 +515,8 @@ const buildDocumentWorksheet = (
   // 7. Table rows filling (Dynamic height & clean text wrap)
   let currentRowNum = 17;
   const numItemsOnThisPage = pageRows.length;
-  // Pad table slightly if fewer rows to maintain nice look, e.g. minimum 10 rows
-  const displayRowCount = Math.max(numItemsOnThisPage, 10);
+  // Pad table to 25 rows on single-page document for standard 25-item template look
+  const displayRowCount = totalPages === 1 ? Math.max(numItemsOnThisPage, 25) : Math.max(numItemsOnThisPage, 15);
 
   for (let idx = 0; idx < displayRowCount; idx++) {
     const r = worksheet.getRow(currentRowNum);

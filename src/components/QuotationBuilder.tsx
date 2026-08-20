@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
-import { Download, Printer, Calendar, Save, Trash2, Plus, Check, RefreshCw, Copy, X } from "lucide-react";
+import { Download, Printer, Calendar, Save, Trash2, Plus, Check, RefreshCw, Copy, X, FileSpreadsheet, Layers, ListPlus, ArrowDownToLine, CheckCheck, Scissors } from "lucide-react";
 import { db } from "../lib/firebase";
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { numberToWords } from "../utils/numberToWords";
-import { parseTSV } from "../utils/tsvParser";
+import { parseClipboardData, parseTSV } from "../utils/tsvParser";
 import { generateExcelWorkbook } from "../utils/excelGenerator";
 import { QuotationRow, MergedRegion, SavedDocument } from "../types";
 import SavedDocumentsPanel from "./SavedDocumentsPanel";
+import ExcelPasteModal from "./ExcelPasteModal";
 
 enum OperationType {
   CREATE = 'create',
@@ -145,6 +146,19 @@ export default function QuotationBuilder() {
   });
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  // Excel Paste Modal and Batch Row Adder states
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [customRowCountInput, setCustomRowCountInput] = useState<string>("10");
+  const [targetTotalRowCountInput, setTargetTotalRowCountInput] = useState<string>("");
+  const [toastMessage, setToastMessage] = useState<{ text: string; type?: "info" | "success" } | null>(null);
+
+  const showToast = (text: string, type: "info" | "success" = "success") => {
+    setToastMessage({ text, type });
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  };
 
   // Grid rows: starts with 20 blank rows by default
   const [rows, setRows] = useState<QuotationRow[]>(() => {
@@ -612,17 +626,82 @@ export default function QuotationBuilder() {
   };
 
   const addRow = () => {
-    setRows((prevRows) => [
-      ...prevRows,
-      {
-        sl: prevRows.length + 1,
-        desc: "",
-        qty: "",
-        unit: "",
-        price: "",
-        amount: 0,
-      },
-    ]);
+    addRows(1);
+  };
+
+  const addRows = (count: number) => {
+    const qtyToAdd = Math.max(1, Math.min(1000, count));
+    setRows((prevRows) => {
+      const newRows = [...prevRows];
+      const startIdx = newRows.length;
+      for (let i = 1; i <= qtyToAdd; i++) {
+        newRows.push({
+          sl: startIdx + i,
+          desc: "",
+          qty: "",
+          unit: "",
+          price: "",
+          amount: 0,
+        });
+      }
+      return newRows;
+    });
+    showToast(`Added ${qtyToAdd} line${qtyToAdd > 1 ? "s" : ""}`);
+  };
+
+  const setExactTotalRows = (targetCount: number) => {
+    const count = Math.max(1, Math.min(1000, targetCount));
+    setRows((prevRows) => {
+      if (count === prevRows.length) return prevRows;
+      if (count > prevRows.length) {
+        const needed = count - prevRows.length;
+        const newRows = [...prevRows];
+        const startIdx = newRows.length;
+        for (let i = 1; i <= needed; i++) {
+          newRows.push({
+            sl: startIdx + i,
+            desc: "",
+            qty: "",
+            unit: "",
+            price: "",
+            amount: 0,
+          });
+        }
+        showToast(`Sheet resized to ${count} lines (+${needed} lines added)`);
+        return newRows;
+      } else {
+        const removed = prevRows.slice(count);
+        const hasData = removed.some(r => r.desc.trim() || r.qty.trim() || r.unit.trim() || r.price.trim());
+        if (hasData) {
+          const ok = window.confirm(`Trimming down to ${count} lines will delete rows containing data. Are you sure you want to proceed?`);
+          if (!ok) return prevRows;
+        }
+        showToast(`Sheet resized to ${count} lines`);
+        return prevRows.slice(0, count).map((r, i) => ({ ...r, sl: i + 1 }));
+      }
+    });
+  };
+
+  const trimTrailingBlankRows = () => {
+    setRows((prevRows) => {
+      let lastNonEmptyIndex = -1;
+      for (let i = prevRows.length - 1; i >= 0; i--) {
+        const r = prevRows[i];
+        if (r.desc.trim() !== "" || r.qty.trim() !== "" || r.unit.trim() !== "" || r.price.trim() !== "") {
+          lastNonEmptyIndex = i;
+          break;
+        }
+      }
+      if (lastNonEmptyIndex === -1) {
+        showToast("Sheet has no filled rows");
+        return prevRows.slice(0, 10);
+      }
+      // Keep at least up to last content row, minimum 5 rows for aesthetics
+      const newCount = Math.max(lastNonEmptyIndex + 1, 5);
+      const trimmed = prevRows.slice(0, newCount);
+      showToast(`Cleaned blank lines at bottom (${trimmed.length} total lines remaining)`);
+      return trimmed.map((r, i) => ({ ...r, sl: i + 1 }));
+    });
   };
 
   const removeRow = () => {
@@ -633,18 +712,26 @@ export default function QuotationBuilder() {
   };
 
   const insertRow = (index: number, position: 'above' | 'below') => {
+    insertMultipleRows(index, position, 1);
+  };
+
+  const insertMultipleRows = (index: number, position: 'above' | 'below', count: number = 1) => {
+    const qty = Math.max(1, count);
     const insertAt = position === 'above' ? index : index + 1;
     setRows((prevRows) => {
       const updated = [...prevRows];
-      const newRow: QuotationRow = {
-        sl: 0,
-        desc: "",
-        qty: "",
-        unit: "",
-        price: "",
-        amount: 0,
-      };
-      updated.splice(insertAt, 0, newRow);
+      const newItems: QuotationRow[] = [];
+      for (let i = 0; i < qty; i++) {
+        newItems.push({
+          sl: 0,
+          desc: "",
+          qty: "",
+          unit: "",
+          price: "",
+          amount: 0,
+        });
+      }
+      updated.splice(insertAt, 0, ...newItems);
       return updated.map((r, i) => ({
         ...r,
         sl: i + 1
@@ -654,14 +741,61 @@ export default function QuotationBuilder() {
     setMergedRegions((prevRegions) =>
       prevRegions.map((region) => {
         if (region.startRow >= insertAt) {
-          return { ...region, startRow: region.startRow + 1, endRow: region.endRow + 1 };
+          return { ...region, startRow: region.startRow + qty, endRow: region.endRow + qty };
         }
         if (region.endRow >= insertAt) {
-          return { ...region, endRow: region.endRow + 1 };
+          return { ...region, endRow: region.endRow + qty };
         }
         return region;
       })
     );
+
+    showToast(`Inserted ${qty} line${qty > 1 ? "s" : ""} ${position} line ${index + 1}`);
+  };
+
+  const handleImportFromExcel = (newRows: QuotationRow[], mode: "replace" | "append" | "insert_at", insertIndex: number = 0) => {
+    if (newRows.length === 0) return;
+    setRows((prevRows) => {
+      let result: QuotationRow[] = [];
+      if (mode === "replace") {
+        result = [...newRows];
+        // Ensure at least 20 blank rows if fewer
+        while (result.length < 20) {
+          result.push({
+            sl: result.length + 1,
+            desc: "",
+            qty: "",
+            unit: "",
+            price: "",
+            amount: 0,
+          });
+        }
+        setMergedRegions([]);
+      } else if (mode === "append") {
+        const isCurrentSheetEmpty = prevRows.every(r => !r.desc.trim() && !r.qty.trim() && !r.unit.trim() && !r.price.trim());
+        if (isCurrentSheetEmpty && prevRows.length <= 20) {
+          result = [...newRows];
+          while (result.length < Math.max(20, newRows.length)) {
+            result.push({
+              sl: result.length + 1,
+              desc: "",
+              qty: "",
+              unit: "",
+              price: "",
+              amount: 0,
+            });
+          }
+        } else {
+          result = [...prevRows, ...newRows];
+        }
+      } else if (mode === "insert_at") {
+        const updated = [...prevRows];
+        updated.splice(insertIndex, 0, ...newRows);
+        result = updated;
+      }
+      showToast(`Imported ${newRows.length} lines from Excel successfully!`);
+      return result.map((r, i) => ({ ...r, sl: i + 1 }));
+    });
   };
 
   const deleteSpecificRow = (index: number) => {
@@ -1029,50 +1163,99 @@ export default function QuotationBuilder() {
     startRowIndex: number,
     startColIndex: number
   ) => {
-    const clipboardData = e.clipboardData.getData("text");
-    if (!clipboardData) return;
+    const plainText = e.clipboardData.getData("text/plain") || e.clipboardData.getData("text");
+    const htmlText = e.clipboardData.getData("text/html");
 
-    if (clipboardData.includes("\t") || clipboardData.includes("\n") || clipboardData.includes("\r")) {
-      e.preventDefault();
-      const parsedGrid = parseTSV(clipboardData);
+    if (!plainText && !htmlText) return;
 
-      if (parsedGrid.length === 0) return;
+    const result = parseClipboardData({ text: plainText, html: htmlText });
+    const parsedGrid = result.grid;
 
-      if (parsedGrid.length === 1 && parsedGrid[0].length === 1) {
-        const parsedVal = parsedGrid[0][0];
-        const textarea = e.currentTarget as HTMLTextAreaElement;
-        const start = textarea.selectionStart ?? 0;
-        const end = textarea.selectionEnd ?? 0;
-        const currentValue = textarea.value;
-        const newValue = currentValue.substring(0, start) + parsedVal + currentValue.substring(end);
-        
-        const fieldMap = ["desc", "qty", "unit", "price"] as const;
-        const field = fieldMap[startColIndex];
+    if (parsedGrid.length === 0) return;
+
+    // 1. Single plain cell without internal newlines -> insert text at cursor
+    if (parsedGrid.length === 1 && parsedGrid[0].length === 1 && !parsedGrid[0][0].includes("\n")) {
+      const parsedVal = parsedGrid[0][0];
+      const textarea = e.currentTarget as HTMLTextAreaElement;
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const currentValue = textarea.value || "";
+      const newValue = currentValue.substring(0, start) + parsedVal + currentValue.substring(end);
+      
+      const fieldMap = ["desc", "qty", "unit", "price"] as const;
+      const field = fieldMap[startColIndex];
+      if (field) {
+        e.preventDefault();
         handleRowChange(startRowIndex, field, newValue);
-        
         setTimeout(() => {
           textarea.focus();
           textarea.selectionStart = textarea.selectionEnd = start + parsedVal.length;
         }, 0);
-        return;
       }
+      return;
+    }
 
-      setRows((prevRows) => {
-        const updated = [...prevRows];
-        parsedGrid.forEach((cols, rOffset) => {
-          const rIndex = startRowIndex + rOffset;
-          if (rIndex >= updated.length) {
-            updated.push({
-              sl: updated.length + 1,
-              desc: "",
-              qty: "",
-              unit: "",
-              price: "",
-              amount: 0,
+    // 2. Multi-cell, multi-line, or multi-column paste from Excel / Google Sheets
+    e.preventDefault();
+
+    const dataRows = result.hasHeader ? parsedGrid.slice(1) : parsedGrid;
+    if (dataRows.length === 0) return;
+
+    const hasSerialCol = result.hasSerialColumn;
+    const colCount = Math.max(...dataRows.map(r => r.length));
+
+    setRows((prevRows) => {
+      const updated = [...prevRows];
+
+      dataRows.forEach((cols, rOffset) => {
+        const rIndex = startRowIndex + rOffset;
+        if (rIndex >= updated.length) {
+          updated.push({
+            sl: updated.length + 1,
+            desc: "",
+            qty: "",
+            unit: "",
+            price: "",
+            amount: 0,
+          });
+        }
+
+        const targetRow = { ...updated[rIndex] };
+
+        // Intelligent column routing
+        if (startColIndex === -1) {
+          // Clicked in SL column
+          if (hasSerialCol || colCount >= 4) {
+            if (cols[1] !== undefined) targetRow.desc = cols[1];
+            if (cols[2] !== undefined) targetRow.qty = cols[2];
+            if (cols[3] !== undefined) targetRow.unit = cols[3];
+            if (cols[4] !== undefined && docType !== "challan") targetRow.price = cols[4];
+          } else {
+            if (cols[0] !== undefined) targetRow.desc = cols[0];
+            if (cols[1] !== undefined) targetRow.qty = cols[1];
+            if (cols[2] !== undefined) targetRow.unit = cols[2];
+            if (cols[3] !== undefined && docType !== "challan") targetRow.price = cols[3];
+          }
+        } else if (startColIndex === 0) {
+          // Clicked in Description column (Col 0)
+          if (hasSerialCol && colCount >= 4) {
+            // Col 0 is SL numbers (1, 2, 3..), Col 1 is Desc, Col 2 is Qty, Col 3 is Unit, Col 4 is Price
+            if (cols[1] !== undefined) targetRow.desc = cols[1];
+            if (cols[2] !== undefined) targetRow.qty = cols[2];
+            if (cols[3] !== undefined) targetRow.unit = cols[3];
+            if (cols[4] !== undefined && docType !== "challan") targetRow.price = cols[4];
+          } else {
+            // Standard columns pasted directly starting at Description
+            cols.forEach((cellValue, cOffset) => {
+              const cIndex = startColIndex + cOffset;
+              if (cIndex === 0) targetRow.desc = cellValue;
+              else if (cIndex === 1) targetRow.qty = cellValue;
+              else if (cIndex === 2) targetRow.unit = cellValue;
+              else if (cIndex === 3 && docType !== "challan") targetRow.price = cellValue;
             });
           }
-
-          const targetRow = { ...updated[rIndex] };
+        } else {
+          // Pasting into specific sub-column (Qty, Unit, or Price)
           cols.forEach((cellValue, cOffset) => {
             const cIndex = startColIndex + cOffset;
             if (cIndex === 0) targetRow.desc = cellValue;
@@ -1080,15 +1263,17 @@ export default function QuotationBuilder() {
             else if (cIndex === 2) targetRow.unit = cellValue;
             else if (cIndex === 3 && docType !== "challan") targetRow.price = cellValue;
           });
+        }
 
-          const q = parseFloat(String(targetRow.qty || "")) || 0;
-          const p = parseFloat(String(targetRow.price || "").replace(/,/g, "")) || 0;
-          targetRow.amount = q * p;
-          updated[rIndex] = targetRow;
-        });
-        return updated;
+        const q = parseFloat(String(targetRow.qty || "")) || 0;
+        const p = parseFloat(String(targetRow.price || "").replace(/,/g, "")) || 0;
+        targetRow.amount = docType === "challan" ? 0 : q * p;
+        updated[rIndex] = targetRow;
       });
-    }
+
+      showToast(`Distributed ${dataRows.length} lines from Excel`);
+      return updated;
+    });
   };
 
   const handleDownloadExcel = async () => {
@@ -1444,6 +1629,15 @@ export default function QuotationBuilder() {
                 <span>SAVE</span>
               </>
             )}
+          </button>
+
+          <button 
+            onClick={() => setIsExcelModalOpen(true)}
+            className="px-2.5 py-1 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 font-extrabold text-[10px] shadow-sm hover:shadow ring-1 ring-emerald-400/40"
+            title="Smart Paste from Excel, Sheets, or CSV"
+          >
+            <FileSpreadsheet className="h-3 w-3" />
+            <span>PASTE EXCEL</span>
           </button>
 
           <button 
@@ -2000,25 +2194,136 @@ export default function QuotationBuilder() {
                   </table>
                 </div>
 
-                {/* Grid Line Actions */}
-                <div className="no-print print:hidden flex items-center gap-2 mt-2 mb-3">
-                  <button
-                    type="button"
-                    onClick={addRow}
-                    className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 text-indigo-800 font-extrabold text-[10px] px-3 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer uppercase tracking-wider"
-                  >
-                    <Plus className="h-3 w-3" />
-                    Add Line
-                  </button>
-                  <button
-                    type="button"
-                    onClick={removeRow}
-                    disabled={rows.length <= 1}
-                    className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-800 font-extrabold text-[10px] px-3 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    Remove Line
-                  </button>
+                {/* Grid Line Actions & Dynamic Row Controller */}
+                <div className="no-print print:hidden my-3 p-3 bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 rounded-xl border border-slate-200/80 shadow-xs space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    
+                    {/* Left: Quick Add & Custom Add */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-700 mr-1 flex items-center gap-1">
+                        <ListPlus className="h-3.5 w-3.5 text-indigo-600" />
+                        <span>Add Lines:</span>
+                      </span>
+
+                      {[1, 5, 10, 25, 50, 100].map((count) => (
+                        <button
+                          key={count}
+                          type="button"
+                          onClick={() => addRows(count)}
+                          className="bg-white hover:bg-indigo-600 hover:text-white border border-slate-300 hover:border-indigo-600 text-slate-700 font-extrabold text-[10px] px-2.5 py-1 rounded-md shadow-2xs transition-all cursor-pointer"
+                          title={`Add ${count} blank row(s) to the bottom`}
+                        >
+                          +{count}
+                        </button>
+                      ))}
+
+                      {/* Custom Row Adder Input */}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const val = parseInt(customRowCountInput, 10);
+                          if (!isNaN(val) && val > 0) {
+                            addRows(val);
+                          }
+                        }}
+                        className="flex items-center gap-1 ml-1 bg-white p-0.5 rounded-md border border-slate-300 shadow-2xs"
+                      >
+                        <input
+                          type="number"
+                          min="1"
+                          max="1000"
+                          value={customRowCountInput}
+                          onChange={(e) => setCustomRowCountInput(e.target.value)}
+                          placeholder="Qty"
+                          className="w-12 text-center text-[10px] font-bold text-slate-800 outline-none border-none p-0.5 bg-transparent"
+                          title="Type any number of rows to add"
+                        />
+                        <button
+                          type="submit"
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[9px] px-2 py-1 rounded transition-colors uppercase tracking-wider cursor-pointer"
+                        >
+                          Add
+                        </button>
+                      </form>
+                    </div>
+
+                    {/* Right: Excel Paste & Row Utilities */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsExcelModalOpen(true)}
+                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-[10px] px-3 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5 uppercase tracking-wider"
+                        title="Open Excel Smart Importer modal or paste clipboard"
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                        <span>Paste from Excel</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={trimTrailingBlankRows}
+                        className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1"
+                        title="Remove blank empty lines from the end of the sheet"
+                      >
+                        <Scissors className="h-3 w-3 text-slate-500" />
+                        <span>Trim Blank Lines</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={removeRow}
+                        disabled={rows.length <= 1}
+                        className="bg-white hover:bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title="Remove 1 row from bottom"
+                      >
+                        <Trash2 className="h-3 w-3 text-rose-500" />
+                        <span>-1 Line</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Second sub-bar: Exact Row Resize & Status counter */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60 text-[10px]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-600">Set exact total rows:</span>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const val = parseInt(targetTotalRowCountInput, 10);
+                          if (!isNaN(val) && val > 0) {
+                            setExactTotalRows(val);
+                            setTargetTotalRowCountInput("");
+                          }
+                        }}
+                        className="flex items-center gap-1"
+                      >
+                        <input
+                          type="number"
+                          min="1"
+                          max="1000"
+                          value={targetTotalRowCountInput}
+                          onChange={(e) => setTargetTotalRowCountInput(e.target.value)}
+                          placeholder={`${rows.length}`}
+                          className="w-14 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-center text-[10px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <button
+                          type="submit"
+                          className="bg-slate-700 hover:bg-slate-800 text-white font-bold px-2 py-0.5 rounded transition-colors cursor-pointer"
+                        >
+                          Resize
+                        </button>
+                      </form>
+                    </div>
+
+                    <div className="flex items-center gap-2 font-mono text-[10px] text-slate-500 font-semibold">
+                      <span className="bg-slate-200/70 text-slate-700 px-2 py-0.5 rounded">
+                        Total Lines: <strong className="text-slate-900">{rows.length}</strong>
+                      </span>
+                      <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">
+                        Filled Lines: <strong>{rows.filter(r => r.desc.trim() || r.qty.trim() || r.unit.trim() || r.price.trim()).length}</strong>
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Bottom closing wraps, sums, signatures */}
@@ -2235,21 +2540,43 @@ export default function QuotationBuilder() {
 
           <button 
             onClick={() => {
-              insertRow(contextMenu.rowIndex, 'above');
+              setIsExcelModalOpen(true);
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-3.5 py-1.5 hover:bg-emerald-50 text-emerald-800 font-bold flex items-center gap-1.5"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Paste / Import from Excel...</span>
+          </button>
+
+          <div className="my-1 border-t border-slate-100"></div>
+
+          <button 
+            onClick={() => {
+              insertMultipleRows(contextMenu.rowIndex, 'above', 1);
               setContextMenu(null);
             }}
             className="w-full text-left px-3.5 py-1.5 hover:bg-slate-100 font-bold"
           >
-            Insert Row Above
+            Insert 1 Row Above
           </button>
           <button 
             onClick={() => {
-              insertRow(contextMenu.rowIndex, 'below');
+              insertMultipleRows(contextMenu.rowIndex, 'below', 1);
               setContextMenu(null);
             }}
             className="w-full text-left px-3.5 py-1.5 hover:bg-slate-100 font-bold"
           >
-            Insert Row Below
+            Insert 1 Row Below
+          </button>
+          <button 
+            onClick={() => {
+              insertMultipleRows(contextMenu.rowIndex, 'below', 5);
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-3.5 py-1.5 hover:bg-slate-100 font-bold text-indigo-700"
+          >
+            Insert +5 Rows Below
           </button>
 
           <div className="my-1 border-t border-slate-100"></div>
@@ -2299,6 +2626,26 @@ export default function QuotationBuilder() {
           >
             Delete Row
           </button>
+        </div>
+      )}
+
+      {/* Excel Smart Importer Modal */}
+      <ExcelPasteModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onImportRows={handleImportFromExcel}
+        selectedRowIndex={safeSelectedRowIndex}
+        totalCurrentRows={rows.length}
+        docType={docType}
+      />
+
+      {/* Floating Status Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[999999] bg-slate-900/95 backdrop-blur-xs text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700/80 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-250">
+          <div className="bg-emerald-500 text-white rounded-full p-1">
+            <CheckCheck className="h-3.5 w-3.5" />
+          </div>
+          <span>{toastMessage.text}</span>
         </div>
       )}
     </div>

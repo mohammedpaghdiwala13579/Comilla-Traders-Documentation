@@ -32,7 +32,7 @@ const getBase64Image = async (url: string): Promise<{ base64: string; ext: strin
  */
 export const calculateItemVisualLines = (desc: string, isChallan: boolean): number => {
   if (!desc || !desc.trim()) return 1;
-  const maxCharsPerLine = isChallan ? 52 : 44;
+  const maxCharsPerLine = isChallan ? 54 : 46;
   const parts = desc.split(/\r?\n/);
   let lines = 0;
   for (const part of parts) {
@@ -47,13 +47,14 @@ export const calculateItemVisualLines = (desc: string, isChallan: boolean): numb
 };
 
 /**
- * Computes tight, compressed Excel row height (in points) ensuring clean layout and no overlapping.
+ * Computes tight, compact Excel row height (in points) strictly proportional to text content.
+ * Prevents overdisplaying and ensures text is fully visible with no clipping or unnecessary white space.
  */
 export const getItemRowHeight = (visualLines: number): number => {
-  if (visualLines <= 1) return 16.5;
-  if (visualLines === 2) return 26;
-  if (visualLines === 3) return 36;
-  return 16.5 + (visualLines - 1) * 11;
+  if (visualLines <= 1) return 16.0;
+  if (visualLines === 2) return 25.5;
+  if (visualLines === 3) return 35.0;
+  return 16.0 + (visualLines - 1) * 9.5;
 };
 
 export interface ExcelPageChunk {
@@ -63,8 +64,9 @@ export interface ExcelPageChunk {
 }
 
 /**
- * Dynamically paginates items ensuring a minimum of 20 items and up to 25 items per page.
- * Seamlessly transitions to next pages when page capacity is reached.
+ * Dynamically paginates items to maximize space utilization on each A4 page.
+ * Uses exact vertical height budgets based on item text.
+ * When the page reaches its maximum vertical capacity, remaining items are transferred to the next page.
  */
 export const paginateRowsForExcel = (
   allRows: QuotationRow[],
@@ -77,11 +79,11 @@ export const paginateRowsForExcel = (
   const isChallan = docType === "challan";
   const isInvoice = docType === "invoice";
   
-  // Compact vertical point budgets for items
-  const REGULAR_PAGE_BUDGET = 480; 
-  const LAST_PAGE_BUDGET = isChallan ? 480 : isInvoice ? 420 : 450;
-  const MIN_ITEMS_PER_PAGE = 20;
-  const MAX_ITEMS_PER_PAGE = 25;
+  // Maximum usable vertical height budget for items on A4 page (in points)
+  // Regular intermediate pages: Header (157pt) + Footer (17pt) = 174pt. Available = 560pt.
+  // Last page: Available accounts for Totals and Signature/Stamp blocks.
+  const REGULAR_PAGE_BUDGET = 560; 
+  const LAST_PAGE_BUDGET = isChallan ? 560 : isInvoice ? 475 : 515;
 
   const chunks: ExcelPageChunk[] = [];
   let currentChunk: QuotationRow[] = [];
@@ -96,12 +98,8 @@ export const paginateRowsForExcel = (
     const isPotentialLastItem = i === allRows.length - 1;
     const budgetForCurrentPage = isPotentialLastItem ? LAST_PAGE_BUDGET : REGULAR_PAGE_BUDGET;
 
-    // Check if adding this item exceeds budget OR maximum 25 items limit (only if we already reached minimum 20 items)
-    const wouldExceedBudget = currentHeight + rowHeight > budgetForCurrentPage;
-    const reachedMaxItems = currentChunk.length >= MAX_ITEMS_PER_PAGE;
-    const reachedMinItems = currentChunk.length >= MIN_ITEMS_PER_PAGE;
-
-    if (currentChunk.length > 0 && ((wouldExceedBudget && reachedMinItems) || reachedMaxItems)) {
+    // Check if adding this item exceeds the maximum A4 vertical budget
+    if (currentChunk.length > 0 && currentHeight + rowHeight > budgetForCurrentPage) {
       chunks.push({
         rows: currentChunk,
         startSlIndex: currentSl,
@@ -117,24 +115,35 @@ export const paginateRowsForExcel = (
   }
 
   if (currentChunk.length > 0) {
-    // If the last page has long items and overflows the budget, split if we have enough items
-    if (!isChallan && currentHeight > LAST_PAGE_BUDGET && currentChunk.length > MIN_ITEMS_PER_PAGE) {
-      const splitIdx = Math.max(MIN_ITEMS_PER_PAGE, currentChunk.length - 5);
-      const part1 = currentChunk.slice(0, splitIdx);
-      const part2 = currentChunk.slice(splitIdx);
-      if (part1.length > 0) {
+    // If the last page exceeds the LAST_PAGE_BUDGET (which includes totals & signatures),
+    // cleanly split the overflow items to the next page
+    if (!isChallan && currentHeight > LAST_PAGE_BUDGET && currentChunk.length > 1) {
+      let splitIdx = currentChunk.length - 1;
+      let remHeight = currentHeight;
+      while (splitIdx > 0 && remHeight > LAST_PAGE_BUDGET) {
+        const lines = calculateItemVisualLines(currentChunk[splitIdx].desc, isChallan);
+        remHeight -= getItemRowHeight(lines);
+        splitIdx--;
+      }
+
+      const page1Rows = currentChunk.slice(0, splitIdx + 1);
+      const page2Rows = currentChunk.slice(splitIdx + 1);
+
+      if (page1Rows.length > 0) {
         chunks.push({
-          rows: part1,
+          rows: page1Rows,
           startSlIndex: currentSl,
           isLastPage: false,
         });
-        currentSl += part1.length;
+        currentSl += page1Rows.length;
       }
-      chunks.push({
-        rows: part2,
-        startSlIndex: currentSl,
-        isLastPage: true,
-      });
+      if (page2Rows.length > 0) {
+        chunks.push({
+          rows: page2Rows,
+          startSlIndex: currentSl,
+          isLastPage: true,
+        });
+      }
     } else {
       chunks.push({
         rows: currentChunk,
@@ -152,8 +161,8 @@ export const paginateRowsForExcel = (
 };
 
 /**
- * Builds a compressed, space-efficient worksheet matching the exact visual document.
- * Guaranteed minimum of 20 items per page, centered stamp, and clean unclipped text without page number in title.
+ * Builds a compact, space-maximized worksheet matching the exact visual document.
+ * Items use space as per text only, no overdisplaying of empty rows, centered stamp, and clean unclipped documents.
  */
 const buildDocumentWorksheet = (
   workbook: ExcelJS.Workbook,
@@ -493,11 +502,11 @@ const buildDocumentWorksheet = (
     };
   });
 
-  // 7. Table rows filling (Minimum 20 items, up to 25 items)
+  // 7. Table rows filling - Uses space strictly as per text only, no overdisplayed empty rows
   let currentRowNum = 12;
   const numItemsOnThisPage = pageRows.length;
-  // Standard minimum 20 items per page format
-  const displayRowCount = Math.max(numItemsOnThisPage, 20);
+  // Display only the actual items on this page (or 1 minimal row if totally empty)
+  const displayRowCount = Math.max(numItemsOnThisPage, 1);
 
   for (let idx = 0; idx < displayRowCount; idx++) {
     const r = worksheet.getRow(currentRowNum);
@@ -508,7 +517,7 @@ const buildDocumentWorksheet = (
     const qtyVal = rowData && rowData.qty ? parseFloat(String(rowData.qty).replace(/,/g, "")) : "";
     const unitVal = rowData ? rowData.unit : "";
 
-    // Dynamic compressed row height based on visual lines
+    // Dynamic compact row height based strictly on actual visual lines
     const visualLines = calculateItemVisualLines(descVal, isChallan);
     r.height = getItemRowHeight(visualLines);
 
@@ -810,7 +819,7 @@ const buildDocumentWorksheet = (
 
 /**
  * Generates complete multi-sheet Excel Workbook for the currently selected document type.
- * Compressed layout, minimum 20 items per page, centered stamp, and clean unclipped documents.
+ * Maximizes A4 space utilization, uses space per text only, compact layout, centered stamp, and automatic page overflow transfer.
  */
 export const generateExcelWorkbook = async (
   docType: "quotation" | "challan" | "invoice",
@@ -867,7 +876,7 @@ export const generateExcelWorkbook = async (
     effectiveRows = rows.slice(0, lastNonEmptyIndex + 1);
   }
 
-  // Dynamic capacity-aware pagination guaranteeing minimum 20 items per page
+  // Dynamic capacity-aware pagination maximizing A4 page utilization
   const pageChunks = paginateRowsForExcel(effectiveRows, docType);
   const totalPages = pageChunks.length;
 

@@ -262,12 +262,12 @@ const buildDocumentWorksheet = (
   companyTitleCell.alignment = { vertical: "middle", horizontal: "left" };
 
   const companySub1 = worksheet.getCell("B2");
-  companySub1.value = "Ship Chandlers, General Order Suppliers & Importers";
+  companySub1.value = "Ship Chandler, Marine Supplier & General Merchant";
   companySub1.font = { name: "Arial", size: 8, bold: true, color: { argb: "334155" } };
   companySub1.alignment = { vertical: "middle", horizontal: "left" };
 
   const companySub2 = worksheet.getCell("B3");
-  companySub2.value = "All kinds of Marine Safety, Deck, Engine, Cabin, Electrical, Provision & Bond Store";
+  companySub2.value = "Mechanical & Electrical Marine Engineering Services";
   companySub2.font = { name: "Arial", size: 7.5, color: { argb: "64748B" } };
   companySub2.alignment = { vertical: "middle", horizontal: "left" };
 

@@ -1970,17 +1970,17 @@ export default function QuotationBuilder() {
 
                 {/* Main Data Sheet Table */}
                 <div className="w-full overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 mt-2">
-                  <table className="main-table w-[650px] sm:w-full border-collapse border-[1.5px] border-black table-fixed text-[9pt]">
+                  <table className="main-table w-full min-w-full border-collapse border-[1.5px] border-black table-fixed text-[9pt]">
                     <thead>
                       <tr className="bg-slate-50 text-[8pt]">
-                        <th className={`${docType === 'challan' ? 'w-[6%]' : 'w-[4.5%]'} border border-black py-1 text-center font-bold`}>SL</th>
-                        <th className={`${docType === 'challan' ? 'w-[73%]' : 'w-[54.5%]'} border border-black py-1 text-left px-3 font-bold`}>Description of Marine Items / Spare Parts</th>
-                        <th className={`${docType === 'challan' ? 'w-[10%]' : 'w-[7%]'} border border-black py-1 text-center font-bold`}>Qty</th>
-                        <th className={`${docType === 'challan' ? 'w-[11%]' : 'w-[9%]'} border border-black py-1 text-center font-bold`}>Unit</th>
+                        <th className={`${docType === 'challan' ? 'w-[5%]' : 'w-[4%]'} border border-black py-1 text-center font-bold`}>SL</th>
+                        <th className={`${docType === 'challan' ? 'w-[77%]' : 'w-[58%]'} border border-black py-1 text-left px-3 font-bold`}>Description of Marine Items / Spare Parts</th>
+                        <th className={`${docType === 'challan' ? 'w-[9%]' : 'w-[7%]'} border border-black py-1 text-center font-bold`}>Qty</th>
+                        <th className={`${docType === 'challan' ? 'w-[9%]' : 'w-[8%]'} border border-black py-1 text-center font-bold`}>Unit</th>
                         {docType !== "challan" && (
                           <>
                             <th className="w-[11%] border border-black py-1 text-center font-bold">Price</th>
-                            <th className="w-[14%] border border-black py-1 text-center font-bold">Amount</th>
+                            <th className="w-[12%] border border-black py-1 text-center font-bold">Amount</th>
                           </>
                         )}
                       </tr>
@@ -2056,9 +2056,9 @@ export default function QuotationBuilder() {
                                     data-col={0}
                                     rows={1}
                                     style={{ height: "auto", resize: "none" }}
-                                    className={`w-full text-left border-none outline-none bg-transparent px-0 text-slate-800 text-[8.5pt] leading-snug block overflow-hidden py-0.5 whitespace-pre-wrap break-words no-print print:hidden`}
+                                    className={`w-full min-w-full text-left border-none outline-none bg-transparent p-0 text-slate-800 text-[8.5pt] leading-normal block overflow-hidden py-0.5 whitespace-normal break-words no-print print:hidden font-normal`}
                                   />
-                                  <div className="hidden print:block whitespace-pre-wrap break-words text-left text-slate-900 leading-snug py-0.5 text-[8.5pt]">
+                                  <div className="hidden print:block whitespace-normal break-words text-left text-slate-900 leading-normal py-0.5 text-[8.5pt] font-normal">
                                     {row.desc || " "}
                                   </div>
                                 </td>
@@ -2091,9 +2091,9 @@ export default function QuotationBuilder() {
                                     data-col={1}
                                     rows={1}
                                     style={{ height: "auto", resize: "none" }}
-                                    className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden text-[8.5pt]"
+                                    className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-normal break-normal no-print print:hidden text-[8.5pt]"
                                   />
-                                  <div className="hidden print:block whitespace-pre-wrap break-words text-center font-mono text-slate-900 py-0.5 text-[8.5pt]">
+                                  <div className="hidden print:block whitespace-normal break-normal text-center font-mono text-slate-900 py-0.5 text-[8.5pt]">
                                     {row.qty || " "}
                                   </div>
                                 </td>
@@ -2126,9 +2126,9 @@ export default function QuotationBuilder() {
                                     data-col={2}
                                     rows={1}
                                     style={{ height: "auto", resize: "none" }}
-                                    className="w-full text-center border-none outline-none bg-transparent px-0 text-slate-800 align-top overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden text-[8.5pt]"
+                                    className="w-full text-center border-none outline-none bg-transparent px-0 text-slate-800 align-top overflow-hidden py-0.5 whitespace-normal break-normal no-print print:hidden text-[8.5pt]"
                                   />
-                                  <div className="hidden print:block whitespace-pre-wrap break-words text-center text-slate-900 py-0.5 text-[8.5pt]">
+                                  <div className="hidden print:block whitespace-normal break-normal text-center text-slate-900 py-0.5 text-[8.5pt]">
                                     {row.unit || " "}
                                   </div>
                                 </td>
@@ -2161,9 +2161,9 @@ export default function QuotationBuilder() {
                                     data-col={3}
                                     rows={1}
                                     style={{ height: "auto", resize: "none" }}
-                                    className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-pre-wrap break-all no-print print:hidden text-[8.5pt]"
+                                    className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-normal break-normal no-print print:hidden text-[8.5pt]"
                                   />
-                                  <div className="hidden print:block whitespace-pre-wrap break-words text-center font-mono text-slate-900 py-0.5 text-[8.5pt]">
+                                  <div className="hidden print:block whitespace-normal break-normal text-center font-mono text-slate-900 py-0.5 text-[8.5pt]">
                                     {row.price || " "}
                                   </div>
                                 </td>

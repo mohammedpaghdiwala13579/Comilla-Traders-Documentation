@@ -28,10 +28,139 @@ const getBase64Image = async (url: string): Promise<{ base64: string; ext: strin
 };
 
 /**
+ * Calculates visual text lines in an item's description based on column width & line breaks.
+ */
+export const calculateItemVisualLines = (desc: string, isChallan: boolean): number => {
+  if (!desc || !desc.trim()) return 1;
+  const maxCharsPerLine = isChallan ? 46 : 38;
+  const parts = desc.split(/\r?\n/);
+  let lines = 0;
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (trimmed.length === 0) {
+      lines += 1;
+    } else {
+      lines += Math.max(1, Math.ceil(trimmed.length / maxCharsPerLine));
+    }
+  }
+  return Math.max(1, lines);
+};
+
+/**
+ * Computes exact Excel row height (in points) ensuring text is 100% visible with zero clipping.
+ */
+export const getItemRowHeight = (visualLines: number): number => {
+  if (visualLines <= 1) return 20;
+  if (visualLines === 2) return 33;
+  if (visualLines === 3) return 46;
+  return 20 + (visualLines - 1) * 14;
+};
+
+export interface ExcelPageChunk {
+  rows: QuotationRow[];
+  startSlIndex: number;
+  isLastPage: boolean;
+}
+
+/**
+ * Dynamically paginates items so each page never exceeds A4 height capacity.
+ * Automatically distributes multi-line items across multiple pages when capacity is reached.
+ */
+export const paginateRowsForExcel = (
+  allRows: QuotationRow[],
+  docType: "quotation" | "challan" | "invoice"
+): ExcelPageChunk[] => {
+  // If no rows, produce 1 empty sheet
+  if (allRows.length === 0) {
+    return [{ rows: [], startSlIndex: 1, isLastPage: true }];
+  }
+
+  const isChallan = docType === "challan";
+  const REGULAR_PAGE_BUDGET = 420; // vertical points for items
+  const LAST_PAGE_BUDGET = isChallan ? 420 : 340; // reserved space for totals & words block
+  const MAX_ITEMS_PER_PAGE = 24; // maximum items limit even if all 1-liners
+
+  const chunks: ExcelPageChunk[] = [];
+  let currentChunk: QuotationRow[] = [];
+  let currentHeight = 0;
+  let currentSl = 1;
+
+  for (let i = 0; i < allRows.length; i++) {
+    const row = allRows[i];
+    const lines = calculateItemVisualLines(row.desc, isChallan);
+    const rowHeight = getItemRowHeight(lines);
+
+    const isPotentialLastItem = i === allRows.length - 1;
+    const budgetForCurrentPage = isPotentialLastItem ? LAST_PAGE_BUDGET : REGULAR_PAGE_BUDGET;
+
+    // Check if adding this item exceeds budget or max items limit
+    if (
+      currentChunk.length > 0 &&
+      (currentHeight + rowHeight > budgetForCurrentPage || currentChunk.length >= MAX_ITEMS_PER_PAGE)
+    ) {
+      chunks.push({
+        rows: currentChunk,
+        startSlIndex: currentSl,
+        isLastPage: false,
+      });
+      currentSl += currentChunk.length;
+      currentChunk = [];
+      currentHeight = 0;
+    }
+
+    currentChunk.push(row);
+    currentHeight += rowHeight;
+  }
+
+  if (currentChunk.length > 0) {
+    // If last chunk alone exceeds the last page budget (due to multi-line items + totals block)
+    if (!isChallan && currentHeight > LAST_PAGE_BUDGET && currentChunk.length > 1) {
+      let splitIdx = currentChunk.length - 1;
+      let runningHeight = 0;
+      for (let j = 0; j < currentChunk.length; j++) {
+        const lines = calculateItemVisualLines(currentChunk[j].desc, isChallan);
+        runningHeight += getItemRowHeight(lines);
+        if (runningHeight > REGULAR_PAGE_BUDGET) {
+          splitIdx = Math.max(1, j);
+          break;
+        }
+      }
+      const part1 = currentChunk.slice(0, splitIdx);
+      const part2 = currentChunk.slice(splitIdx);
+      if (part1.length > 0) {
+        chunks.push({
+          rows: part1,
+          startSlIndex: currentSl,
+          isLastPage: false,
+        });
+        currentSl += part1.length;
+      }
+      chunks.push({
+        rows: part2,
+        startSlIndex: currentSl,
+        isLastPage: true,
+      });
+    } else {
+      chunks.push({
+        rows: currentChunk,
+        startSlIndex: currentSl,
+        isLastPage: true,
+      });
+    }
+  }
+
+  // Update strictly the last chunk
+  chunks.forEach((chunk, idx) => {
+    chunk.isLastPage = idx === chunks.length - 1;
+  });
+
+  return chunks;
+};
+
+/**
  * Builds a single pristine worksheet matching the exact visual component.
- * Configured for 30 items per page with perfect A4 fit-to-1-page print setup.
- * Grid lines are enabled for easy spreadsheet editing while keeping professional document borders,
- * all text is completely visible with ample column spacing and zero clipping.
+ * Dynamic item height, clean non-overlapping text, standard editable grid lines,
+ * and authentic document borders.
  */
 const buildDocumentWorksheet = (
   workbook: ExcelJS.Workbook,
@@ -72,7 +201,7 @@ const buildDocumentWorksheet = (
       footer: 0.15,
     },
     horizontalCentered: true,
-    showGridLines: false, // Don't print raw background gridlines, rely on our clean table borders
+    showGridLines: false, // Clean print output
   };
 
   // Add centered Page number in Excel print footer
@@ -92,18 +221,18 @@ const buildDocumentWorksheet = (
   if (isChallan) {
     worksheet.columns = [
       { key: "A", width: 7.5 },  // SL / Logo
-      { key: "B", width: 54.0 }, // Description / Company info
+      { key: "B", width: 56.0 }, // Description / Company info
       { key: "C", width: 16.0 }, // Qty / Right Box Label
       { key: "D", width: 22.0 }, // Unit / Right Box Value
     ];
   } else {
     worksheet.columns = [
       { key: "A", width: 7.0 },  // SL / Logo
-      { key: "B", width: 48.0 }, // Description / Company info
-      { key: "C", width: 8.5 },  // Qty / Right Box Label (Part 1)
-      { key: "D", width: 10.5 }, // Unit / Right Box Label (Part 2) -> C+D = 19.0 (Fits "REQUISITION NO.:" easily)
+      { key: "B", width: 50.0 }, // Description / Company info
+      { key: "C", width: 9.0 },  // Qty / Right Box Label (Part 1)
+      { key: "D", width: 10.5 }, // Unit / Right Box Label (Part 2) -> C+D = 19.5 (Fits "REQUISITION NO.:" easily)
       { key: "E", width: 12.0 }, // Price / Right Box Value (Part 1)
-      { key: "F", width: 14.0 }, // Amount / Right Box Value (Part 2) -> E+F = 26.0
+      { key: "F", width: 14.5 }, // Amount / Right Box Value (Part 2) -> E+F = 26.5
     ];
   }
 
@@ -141,7 +270,7 @@ const buildDocumentWorksheet = (
   companySub2.alignment = { vertical: "middle", horizontal: "left" };
 
   // 3. Contact information on the right header (Merged across C..F or C..D for broad unclipped display)
-  const contactStartCol = isChallan ? "C" : "C";
+  const contactStartCol = "C";
 
   worksheet.mergeCells(`${contactStartCol}1:${lastColLetter}1`);
   const contact1 = worksheet.getCell(`${contactStartCol}1`);
@@ -193,7 +322,6 @@ const buildDocumentWorksheet = (
   worksheet.getRow(8).height = 5;
 
   // 5. Metadata Boxes (Rows 10 to 14)
-  // Left Box: Columns A & B (Messers & Address)
   worksheet.mergeCells("A10:B10");
   worksheet.getCell("A10").value = "MESSERS:";
   worksheet.getCell("A10").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
@@ -230,62 +358,56 @@ const buildDocumentWorksheet = (
   }
 
   // Right Box:
-  // Quotation/Invoice: Labels in C:D (width 19.0), Values in E:F (width 26.0) with dotted underline
-  // Challan: Labels in C (width 16.0), Values in D (width 22.0) with dotted underline
   if (isInvoice) {
     // Row 10: INVOICE NO
-    if (isChallan) {
-      // not invoice
-    } else {
-      worksheet.mergeCells("C10:D10");
-      worksheet.getCell("C10").value = "INVOICE NO.:";
-      worksheet.getCell("C10").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-      worksheet.mergeCells("E10:F10");
-      const iVal = worksheet.getCell("E10");
-      iVal.value = invoiceNo || "";
-      iVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
-      iVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
+    worksheet.mergeCells("C10:D10");
+    worksheet.getCell("C10").value = "INVOICE NO.:";
+    worksheet.getCell("C10").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E10:F10");
+    const iVal = worksheet.getCell("E10");
+    iVal.value = invoiceNo || "";
+    iVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+    iVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-      // Row 11: DATE
-      worksheet.mergeCells("C11:D11");
-      worksheet.getCell("C11").value = "DATE:";
-      worksheet.getCell("C11").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-      worksheet.mergeCells("E11:F11");
-      const dVal = worksheet.getCell("E11");
-      dVal.value = dateVal || "";
-      dVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
-      dVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
+    // Row 11: DATE
+    worksheet.mergeCells("C11:D11");
+    worksheet.getCell("C11").value = "DATE:";
+    worksheet.getCell("C11").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E11:F11");
+    const dVal = worksheet.getCell("E11");
+    dVal.value = dateVal || "";
+    dVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+    dVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-      // Row 12: CHALLAN NO
-      worksheet.mergeCells("C12:D12");
-      worksheet.getCell("C12").value = "CHALLAN NO.:";
-      worksheet.getCell("C12").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-      worksheet.mergeCells("E12:F12");
-      const cVal = worksheet.getCell("E12");
-      cVal.value = challanNo || "";
-      cVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
-      cVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
+    // Row 12: CHALLAN NO
+    worksheet.mergeCells("C12:D12");
+    worksheet.getCell("C12").value = "CHALLAN NO.:";
+    worksheet.getCell("C12").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E12:F12");
+    const cVal = worksheet.getCell("E12");
+    cVal.value = challanNo || "";
+    cVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+    cVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-      // Row 13: REQUISITION NO
-      worksheet.mergeCells("C13:D13");
-      worksheet.getCell("C13").value = "REQUISITION NO.:";
-      worksheet.getCell("C13").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-      worksheet.mergeCells("E13:F13");
-      const rVal = worksheet.getCell("E13");
-      rVal.value = requisitionNo || "";
-      rVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
-      rVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
+    // Row 13: REQUISITION NO
+    worksheet.mergeCells("C13:D13");
+    worksheet.getCell("C13").value = "REQUISITION NO.:";
+    worksheet.getCell("C13").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E13:F13");
+    const rVal = worksheet.getCell("E13");
+    rVal.value = requisitionNo || "";
+    rVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+    rVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-      // Row 14: P.O. NUMBER
-      worksheet.mergeCells("C14:D14");
-      worksheet.getCell("C14").value = "P.O. NUMBER:";
-      worksheet.getCell("C14").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-      worksheet.mergeCells("E14:F14");
-      const pVal = worksheet.getCell("E14");
-      pVal.value = poNumber || "";
-      pVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
-      pVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
-    }
+    // Row 14: P.O. NUMBER
+    worksheet.mergeCells("C14:D14");
+    worksheet.getCell("C14").value = "P.O. NUMBER:";
+    worksheet.getCell("C14").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E14:F14");
+    const pVal = worksheet.getCell("E14");
+    pVal.value = poNumber || "";
+    pVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+    pVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
   } else if (isChallan) {
     // Row 10: CHALLAN NO
     worksheet.getCell("C10").value = "CHALLAN NO.:";
@@ -317,7 +439,6 @@ const buildDocumentWorksheet = (
     }
   } else {
     // Quotation
-    // Row 10: DATE
     worksheet.mergeCells("C10:D10");
     worksheet.getCell("C10").value = "DATE:";
     worksheet.getCell("C10").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
@@ -327,7 +448,6 @@ const buildDocumentWorksheet = (
     dVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     dVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-    // Row 11: REQUISITION NO
     worksheet.mergeCells("C11:D11");
     worksheet.getCell("C11").value = "REQUISITION NO.:";
     worksheet.getCell("C11").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
@@ -337,7 +457,6 @@ const buildDocumentWorksheet = (
     rVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     rVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-    // Rows 12, 13, 14: blank dotted lines
     for (let r = 12; r <= 14; r++) {
       worksheet.mergeCells(`E${r}:F${r}`);
       worksheet.getCell(`E${r}`).border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
@@ -391,23 +510,28 @@ const buildDocumentWorksheet = (
     };
   });
 
-  // 7. Table rows filling (Fixed 30 items per page)
-  const ITEMS_PER_PAGE = 30;
+  // 7. Table rows filling (Dynamic height & clean text wrap)
   let currentRowNum = 17;
+  const numItemsOnThisPage = pageRows.length;
+  // Pad table slightly if fewer rows to maintain nice look, e.g. minimum 10 rows
+  const displayRowCount = Math.max(numItemsOnThisPage, 10);
 
-  for (let idx = 0; idx < ITEMS_PER_PAGE; idx++) {
+  for (let idx = 0; idx < displayRowCount; idx++) {
     const r = worksheet.getRow(currentRowNum);
-    r.height = 16.5;
-
     const rowData = pageRows[idx];
+
     const slVal = startSlIndex + idx;
     const descVal = rowData ? rowData.desc : "";
     const qtyVal = rowData && rowData.qty ? parseFloat(String(rowData.qty).replace(/,/g, "")) : "";
     const unitVal = rowData ? rowData.unit : "";
 
+    // Dynamic row height based on visual lines in description
+    const visualLines = calculateItemVisualLines(descVal, isChallan);
+    r.height = getItemRowHeight(visualLines);
+
     // Set SL
     const cellSL = r.getCell(1);
-    cellSL.value = rowData || idx < pageRows.length ? slVal : "";
+    cellSL.value = rowData ? slVal : "";
     cellSL.alignment = { vertical: "middle", horizontal: "center" };
     cellSL.font = { name: "Arial", size: 8 };
 
@@ -483,7 +607,7 @@ const buildDocumentWorksheet = (
 
   // Apply Cell Merging to Excel Worksheet for this page
   const pageStartRowIdx = startSlIndex - 1;
-  const pageEndRowIdx = pageStartRowIdx + ITEMS_PER_PAGE - 1;
+  const pageEndRowIdx = pageStartRowIdx + numItemsOnThisPage - 1;
 
   mergedRegions.forEach((region) => {
     if (region.startRow >= pageStartRowIdx && region.endRow <= pageEndRowIdx) {
@@ -495,7 +619,7 @@ const buildDocumentWorksheet = (
       if (
         excelStartRow >= 17 &&
         excelStartCol >= 1 &&
-        excelEndRow < 17 + ITEMS_PER_PAGE &&
+        excelEndRow < 17 + displayRowCount &&
         excelEndCol <= totalCols
       ) {
         try {
@@ -644,7 +768,6 @@ const buildDocumentWorksheet = (
   }
 
   // 9. Signatures Area
-  // Blank spacer row
   worksheet.getRow(currentRowNum).height = 10;
   currentRowNum++;
 
@@ -683,11 +806,12 @@ const buildDocumentWorksheet = (
   authSig.alignment = { vertical: "middle", horizontal: "center" };
   authSig.border = { top: { style: "thin", color: { argb: "000000" } } };
 
-  // Add Official Stamp cleanly positioned above the signature line without obscuring text
+  // Add Official Stamp precisely centered over the Authorized Signature section (between "For Comilla Traders" and "Authorized Signature")
   if (!isChallan && stampId !== null) {
+    // Columns E and F span from col 4.0 to 6.0 (total width 26.5 chars). Center is around col 4.85
     worksheet.addImage(stampId, {
-      tl: { col: 4.2, row: sigRow - 2.2 },
-      ext: { width: 60, height: 60 },
+      tl: { col: 4.85, row: sigRow - 2.05 },
+      ext: { width: 68, height: 68 },
     });
   }
 
@@ -704,8 +828,7 @@ const buildDocumentWorksheet = (
 
 /**
  * Generates complete multi-sheet Excel Workbook for the currently selected document type.
- * Automatically divides items into batches of 30 per sheet with clean headers, no overlapping elements,
- * no intermediate subtotals, standard Excel grid lines for editing, and precise document borders.
+ * Automatically analyzes content height and paginates items dynamically when maximum page capacity is reached.
  */
 export const generateExcelWorkbook = async (
   docType: "quotation" | "challan" | "invoice",
@@ -749,8 +872,24 @@ export const generateExcelWorkbook = async (
     });
   }
 
-  // Export only the currently selected document type
-  const sheetTypes: ("quotation" | "challan" | "invoice")[] = [docType];
+  // Filter out purely blank trailing rows if user has extra empty slots at the bottom,
+  // but keep all filled rows
+  let effectiveRows = rows;
+  let lastNonEmptyIndex = -1;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i];
+    if (r.desc.trim() !== "" || r.qty.trim() !== "" || r.price.trim() !== "") {
+      lastNonEmptyIndex = i;
+      break;
+    }
+  }
+  if (lastNonEmptyIndex >= 0) {
+    effectiveRows = rows.slice(0, lastNonEmptyIndex + 1);
+  }
+
+  // Dynamic capacity-aware pagination
+  const pageChunks = paginateRowsForExcel(effectiveRows, docType);
+  const totalPages = pageChunks.length;
 
   const baseSheetNames: Record<string, string> = {
     quotation: "Quotation",
@@ -758,51 +897,37 @@ export const generateExcelWorkbook = async (
     invoice: "Invoice",
   };
 
-  const ITEMS_PER_PAGE = 30;
+  pageChunks.forEach((chunk, pageIdx) => {
+    const pageNumber = pageIdx + 1;
+    const sheetName =
+      totalPages === 1
+        ? baseSheetNames[docType]
+        : `${baseSheetNames[docType]} - Pg ${pageNumber}`;
 
-  // Trim or slice rows - ensure at least 1 page
-  const totalRowsCount = rows.length;
-  const totalPages = Math.max(1, Math.ceil(totalRowsCount / ITEMS_PER_PAGE));
-
-  sheetTypes.forEach((type) => {
-    for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
-      const startIdx = pageIdx * ITEMS_PER_PAGE;
-      const endIdx = startIdx + ITEMS_PER_PAGE;
-      const pageRows = rows.slice(startIdx, endIdx);
-      const isLastPage = pageIdx === totalPages - 1;
-      const pageNumber = pageIdx + 1;
-
-      // Sheet name (e.g., "Quotation" if 1 page, or "Quotation - Pg 1", "Quotation - Pg 2")
-      const sheetName =
-        totalPages === 1
-          ? baseSheetNames[type]
-          : `${baseSheetNames[type]} - Pg ${pageNumber}`;
-
-      const ws = workbook.addWorksheet(sheetName);
-      buildDocumentWorksheet(
-        workbook,
-        ws,
-        type,
-        messers,
-        address,
-        challanNo,
-        dateVal,
-        requisitionNo,
-        pageRows,
-        mergedRegions,
-        invoiceNo,
-        poNumber,
-        vatPercent || 0,
-        transportationFee || 0,
-        logoId,
-        stampId,
-        startIdx + 1, // startSlIndex (e.g. 1, 31, 61...)
-        pageNumber,
-        totalPages,
-        isLastPage,
-        rows
-      );
-    }
+    const ws = workbook.addWorksheet(sheetName);
+    buildDocumentWorksheet(
+      workbook,
+      ws,
+      docType,
+      messers,
+      address,
+      challanNo,
+      dateVal,
+      requisitionNo,
+      chunk.rows,
+      mergedRegions,
+      invoiceNo,
+      poNumber,
+      vatPercent || 0,
+      transportationFee || 0,
+      logoId,
+      stampId,
+      chunk.startSlIndex,
+      pageNumber,
+      totalPages,
+      chunk.isLastPage,
+      effectiveRows
+    );
   });
 
   return workbook;

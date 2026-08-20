@@ -1998,8 +1998,8 @@ export default function QuotationBuilder() {
                   <table className="main-table w-full min-w-full border-collapse border-[1.5px] border-black table-fixed text-[9pt]">
                     <thead>
                       <tr className="bg-slate-50 text-[8pt]">
-                        <th className={`${docType === 'challan' ? 'w-[5%]' : 'w-[4%]'} border border-black py-1 text-center font-bold`}>SL</th>
-                        <th className={`${docType === 'challan' ? 'w-[77%]' : 'w-[58%]'} border border-black py-1 text-left px-3 font-bold`}>Description of Marine Items / Spare Parts</th>
+                        <th className={`${docType === 'challan' ? 'w-[7%]' : 'w-[6%]'} border border-black py-1 text-center font-bold`}>SL</th>
+                        <th className={`${docType === 'challan' ? 'w-[75%]' : 'w-[56%]'} border border-black py-1 text-left px-3 font-bold`}>Description of Marine Items / Spare Parts</th>
                         <th className={`${docType === 'challan' ? 'w-[9%]' : 'w-[7%]'} border border-black py-1 text-center font-bold`}>Qty</th>
                         <th className={`${docType === 'challan' ? 'w-[9%]' : 'w-[8%]'} border border-black py-1 text-center font-bold`}>Unit</th>
                         {docType !== "challan" && (
@@ -2036,7 +2036,7 @@ export default function QuotationBuilder() {
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, -1)}
                                   onClick={() => handleCellClick(idx, -1)}
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, -1)}
-                                  className={getCellClassName(idx, -1, `border border-black text-center font-mono text-[8pt] align-top py-0.5 transition-all cursor-pointer select-none bg-slate-50/30 text-slate-800`)}
+                                  className={getCellClassName(idx, -1, `border border-black text-center font-mono text-[8pt] align-top py-0.5 px-0.5 whitespace-nowrap transition-all cursor-pointer select-none bg-slate-50/30 text-slate-800`)}
                                 >
                                   {idx + 1}
                                 </td>

@@ -763,8 +763,8 @@ const buildDocumentWorksheet = (
   currentRowNum++;
 
   // "For Comilla Traders" row
+  const authHeaderRow = currentRowNum;
   if (!isChallan) {
-    const authHeaderRow = currentRowNum;
     worksheet.getRow(authHeaderRow).height = 13;
     worksheet.mergeCells(`E${authHeaderRow}:F${authHeaderRow}`);
     const authTitle = worksheet.getCell(`E${authHeaderRow}`);
@@ -775,9 +775,9 @@ const buildDocumentWorksheet = (
   }
 
   // Spacer between header & signature line
-  worksheet.getRow(currentRowNum).height = 16;
+  worksheet.getRow(currentRowNum).height = 15;
   const sigRow = currentRowNum + 1;
-  worksheet.getRow(sigRow).height = 15;
+  worksheet.getRow(sigRow).height = 14;
 
   // Receiver's Signature
   worksheet.mergeCells(`A${sigRow}:B${sigRow}`);
@@ -797,12 +797,11 @@ const buildDocumentWorksheet = (
   authSig.alignment = { vertical: "middle", horizontal: "center" };
   authSig.border = { top: { style: "thin", color: { argb: "000000" } } };
 
-  // Centered Official Stamp directly over the Authorized Signature line (mathematically centered across Cols E & F)
+  // Centered Official Stamp positioned directly between "For Comilla Traders" and "Authorized Signature"
   if (!isChallan && stampId !== null) {
-    // Cols E (12.0) & F (14.5) span 212px. With a 68px stamp, tl.col 4.75 creates exactly 72px equal margins on both left and right.
     worksheet.addImage(stampId, {
-      tl: { col: 4.75, row: sigRow - 2.1 },
-      ext: { width: 68, height: 68 },
+      tl: { col: 4.72, row: sigRow - 2.05 },
+      ext: { width: 66, height: 66 },
     });
   }
 

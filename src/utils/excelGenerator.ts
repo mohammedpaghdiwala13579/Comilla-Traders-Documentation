@@ -797,12 +797,12 @@ const buildDocumentWorksheet = (
   authSig.alignment = { vertical: "middle", horizontal: "center" };
   authSig.border = { top: { style: "thin", color: { argb: "000000" } } };
 
-  // Centered Official Stamp directly over the Authorized Signature line
+  // Centered Official Stamp directly over the Authorized Signature line (mathematically centered across Cols E & F)
   if (!isChallan && stampId !== null) {
-    // E is col 4 (width 12.0), F is col 5 (width 14.5). Total width = 26.5. Center is at col 4.88
+    // Cols E (12.0) & F (14.5) span 212px. With a 68px stamp, tl.col 4.75 creates exactly 72px equal margins on both left and right.
     worksheet.addImage(stampId, {
-      tl: { col: 4.88, row: sigRow - 2.05 },
-      ext: { width: 66, height: 66 },
+      tl: { col: 4.75, row: sigRow - 2.1 },
+      ext: { width: 68, height: 68 },
     });
   }
 

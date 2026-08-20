@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, FileSpreadsheet, Check, ArrowRight, AlertCircle, Upload, Plus, Layers, HelpCircle } from "lucide-react";
 import * as XLSX from "xlsx";
-import { parseClipboardData, parseHTMLTable, parseTSV, parseCSV } from "../utils/tsvParser";
+import { parseClipboardData, parseHTMLTable, parseTSV, parseCSV, cleanCellText } from "../utils/tsvParser";
 import { QuotationRow } from "../types";
 
 interface ExcelPasteModalProps {
@@ -216,10 +216,10 @@ export default function ExcelPasteModal({
     const priceColIdx = columnMappings.indexOf("price");
 
     const convertedRows: QuotationRow[] = dataRows.map((row, idx) => {
-      const desc = descColIdx >= 0 ? (row[descColIdx] || "") : "";
-      const qty = qtyColIdx >= 0 ? (row[qtyColIdx] || "") : "";
-      const unit = unitColIdx >= 0 ? (row[unitColIdx] || "") : "";
-      const price = priceColIdx >= 0 ? (row[priceColIdx] || "") : "";
+      const desc = descColIdx >= 0 ? cleanCellText(row[descColIdx] || "") : "";
+      const qty = qtyColIdx >= 0 ? cleanCellText(row[qtyColIdx] || "") : "";
+      const unit = unitColIdx >= 0 ? cleanCellText(row[unitColIdx] || "") : "";
+      const price = priceColIdx >= 0 ? cleanCellText(row[priceColIdx] || "") : "";
 
       const q = parseFloat(qty) || 0;
       const p = parseFloat(price.replace(/,/g, "")) || 0;

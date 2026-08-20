@@ -16,6 +16,18 @@ export interface ParsedClipboardResult {
 }
 
 /**
+ * Helper to clean and flatten multiline cell text into continuous space-separated text
+ */
+export function cleanCellText(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\u00A0/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
  * Extracts a 2D string array from an HTML table clipboard payload
  */
 export function parseHTMLTable(html: string): string[][] | null {
@@ -39,15 +51,13 @@ export function parseHTMLTable(html: string): string[][] | null {
       if (cells.length === 0) return;
 
       const rowValues = cells.map((cell) => {
-        // Clean line breaks inside cell: replace <br> with newline
+        // Replace <br>, <p>, <div> linebreaks with space so text flows continuously
         const clones = cell.cloneNode(true) as HTMLElement;
         const brs = clones.querySelectorAll("br");
-        brs.forEach((br) => br.replaceWith("\n"));
+        brs.forEach((br) => br.replaceWith(" "));
 
         let text = clones.textContent || "";
-        // Clean up non-breaking spaces
-        text = text.replace(/\u00A0/g, " ").trim();
-        return text;
+        return cleanCellText(text);
       });
 
       // Avoid adding completely empty rows
@@ -85,6 +95,9 @@ export function parseTSV(text: string): string[][] {
         } else {
           inQuotes = false;
         }
+      } else if (char === '\r' || char === '\n') {
+        // Convert internal cell newline into space so text wraps naturally across the column
+        cell += ' ';
       } else {
         cell += char;
       }
@@ -92,23 +105,23 @@ export function parseTSV(text: string): string[][] {
       if (char === '"') {
         inQuotes = true;
       } else if (char === "\t") {
-        row.push(cell.trim());
+        row.push(cleanCellText(cell));
         cell = "";
       } else if (char === "\r") {
         if (nextChar === "\n") {
-          row.push(cell.trim());
+          row.push(cleanCellText(cell));
           result.push(row);
           row = [];
           cell = "";
           i++; // Skip \n
         } else {
-          row.push(cell.trim());
+          row.push(cleanCellText(cell));
           result.push(row);
           row = [];
           cell = "";
         }
       } else if (char === "\n") {
-        row.push(cell.trim());
+        row.push(cleanCellText(cell));
         result.push(row);
         row = [];
         cell = "";
@@ -119,7 +132,7 @@ export function parseTSV(text: string): string[][] {
   }
 
   if (cell !== "" || row.length > 0) {
-    row.push(cell.trim());
+    row.push(cleanCellText(cell));
     result.push(row);
   }
 
@@ -155,6 +168,9 @@ export function parseCSV(text: string, delimiter: "," | ";" = ","): string[][] {
         } else {
           inQuotes = false;
         }
+      } else if (char === '\r' || char === '\n') {
+        // Convert internal cell newline into space so text wraps naturally across the column
+        cell += ' ';
       } else {
         cell += char;
       }
@@ -162,23 +178,23 @@ export function parseCSV(text: string, delimiter: "," | ";" = ","): string[][] {
       if (char === '"') {
         inQuotes = true;
       } else if (char === delimiter) {
-        row.push(cell.trim());
+        row.push(cleanCellText(cell));
         cell = "";
       } else if (char === "\r") {
         if (nextChar === "\n") {
-          row.push(cell.trim());
+          row.push(cleanCellText(cell));
           result.push(row);
           row = [];
           cell = "";
           i++;
         } else {
-          row.push(cell.trim());
+          row.push(cleanCellText(cell));
           result.push(row);
           row = [];
           cell = "";
         }
       } else if (char === "\n") {
-        row.push(cell.trim());
+        row.push(cleanCellText(cell));
         result.push(row);
         row = [];
         cell = "";
@@ -189,7 +205,7 @@ export function parseCSV(text: string, delimiter: "," | ";" = ","): string[][] {
   }
 
   if (cell !== "" || row.length > 0) {
-    row.push(cell.trim());
+    row.push(cleanCellText(cell));
     result.push(row);
   }
 

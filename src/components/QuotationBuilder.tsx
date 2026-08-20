@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
-import { Download, Printer, Calendar, Save, Trash2, Plus, Check, RefreshCw, Copy, X, FileSpreadsheet, Layers, ListPlus, ArrowDownToLine, CheckCheck, Scissors } from "lucide-react";
+import { Download, Printer, Calendar, Save, Trash2, Plus, Check, RefreshCw, Copy, X, FileSpreadsheet, Layers, ListPlus, ArrowDownToLine, CheckCheck, Scissors, WrapText } from "lucide-react";
 import { db } from "../lib/firebase";
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { numberToWords } from "../utils/numberToWords";
-import { parseClipboardData, parseTSV } from "../utils/tsvParser";
+import { parseClipboardData, parseTSV, cleanCellText } from "../utils/tsvParser";
 import { generateExcelWorkbook } from "../utils/excelGenerator";
 import { QuotationRow, MergedRegion, SavedDocument } from "../types";
 import SavedDocumentsPanel from "./SavedDocumentsPanel";
@@ -1175,7 +1175,7 @@ export default function QuotationBuilder() {
 
     // 1. Single plain cell without internal newlines -> insert text at cursor
     if (parsedGrid.length === 1 && parsedGrid[0].length === 1 && !parsedGrid[0][0].includes("\n")) {
-      const parsedVal = parsedGrid[0][0];
+      const parsedVal = cleanCellText(parsedGrid[0][0]);
       const textarea = e.currentTarget as HTMLTextAreaElement;
       const start = textarea.selectionStart ?? 0;
       const end = textarea.selectionEnd ?? 0;
@@ -1222,46 +1222,44 @@ export default function QuotationBuilder() {
 
         const targetRow = { ...updated[rIndex] };
 
-        // Intelligent column routing
+        // Intelligent column routing with clean continuous text
         if (startColIndex === -1) {
           // Clicked in SL column
           if (hasSerialCol || colCount >= 4) {
-            if (cols[1] !== undefined) targetRow.desc = cols[1];
-            if (cols[2] !== undefined) targetRow.qty = cols[2];
-            if (cols[3] !== undefined) targetRow.unit = cols[3];
-            if (cols[4] !== undefined && docType !== "challan") targetRow.price = cols[4];
+            if (cols[1] !== undefined) targetRow.desc = cleanCellText(cols[1]);
+            if (cols[2] !== undefined) targetRow.qty = cleanCellText(cols[2]);
+            if (cols[3] !== undefined) targetRow.unit = cleanCellText(cols[3]);
+            if (cols[4] !== undefined && docType !== "challan") targetRow.price = cleanCellText(cols[4]);
           } else {
-            if (cols[0] !== undefined) targetRow.desc = cols[0];
-            if (cols[1] !== undefined) targetRow.qty = cols[1];
-            if (cols[2] !== undefined) targetRow.unit = cols[2];
-            if (cols[3] !== undefined && docType !== "challan") targetRow.price = cols[3];
+            if (cols[0] !== undefined) targetRow.desc = cleanCellText(cols[0]);
+            if (cols[1] !== undefined) targetRow.qty = cleanCellText(cols[1]);
+            if (cols[2] !== undefined) targetRow.unit = cleanCellText(cols[2]);
+            if (cols[3] !== undefined && docType !== "challan") targetRow.price = cleanCellText(cols[3]);
           }
         } else if (startColIndex === 0) {
           // Clicked in Description column (Col 0)
           if (hasSerialCol && colCount >= 4) {
-            // Col 0 is SL numbers (1, 2, 3..), Col 1 is Desc, Col 2 is Qty, Col 3 is Unit, Col 4 is Price
-            if (cols[1] !== undefined) targetRow.desc = cols[1];
-            if (cols[2] !== undefined) targetRow.qty = cols[2];
-            if (cols[3] !== undefined) targetRow.unit = cols[3];
-            if (cols[4] !== undefined && docType !== "challan") targetRow.price = cols[4];
+            if (cols[1] !== undefined) targetRow.desc = cleanCellText(cols[1]);
+            if (cols[2] !== undefined) targetRow.qty = cleanCellText(cols[2]);
+            if (cols[3] !== undefined) targetRow.unit = cleanCellText(cols[3]);
+            if (cols[4] !== undefined && docType !== "challan") targetRow.price = cleanCellText(cols[4]);
           } else {
-            // Standard columns pasted directly starting at Description
             cols.forEach((cellValue, cOffset) => {
               const cIndex = startColIndex + cOffset;
-              if (cIndex === 0) targetRow.desc = cellValue;
-              else if (cIndex === 1) targetRow.qty = cellValue;
-              else if (cIndex === 2) targetRow.unit = cellValue;
-              else if (cIndex === 3 && docType !== "challan") targetRow.price = cellValue;
+              if (cIndex === 0) targetRow.desc = cleanCellText(cellValue);
+              else if (cIndex === 1) targetRow.qty = cleanCellText(cellValue);
+              else if (cIndex === 2) targetRow.unit = cleanCellText(cellValue);
+              else if (cIndex === 3 && docType !== "challan") targetRow.price = cleanCellText(cellValue);
             });
           }
         } else {
           // Pasting into specific sub-column (Qty, Unit, or Price)
           cols.forEach((cellValue, cOffset) => {
             const cIndex = startColIndex + cOffset;
-            if (cIndex === 0) targetRow.desc = cellValue;
-            else if (cIndex === 1) targetRow.qty = cellValue;
-            else if (cIndex === 2) targetRow.unit = cellValue;
-            else if (cIndex === 3 && docType !== "challan") targetRow.price = cellValue;
+            if (cIndex === 0) targetRow.desc = cleanCellText(cellValue);
+            else if (cIndex === 1) targetRow.qty = cleanCellText(cellValue);
+            else if (cIndex === 2) targetRow.unit = cleanCellText(cellValue);
+            else if (cIndex === 3 && docType !== "challan") targetRow.price = cleanCellText(cellValue);
           });
         }
 
@@ -1274,6 +1272,33 @@ export default function QuotationBuilder() {
       showToast(`Distributed ${dataRows.length} lines from Excel`);
       return updated;
     });
+  };
+
+  const unwrapAllDescriptions = () => {
+    let fixedCount = 0;
+    setRows((prev) => {
+      const updated = prev.map((r) => {
+        const original = r.desc || "";
+        const cleaned = cleanCellText(original);
+        if (cleaned !== original) {
+          fixedCount++;
+        }
+        return {
+          ...r,
+          desc: cleaned,
+          qty: cleanCellText(r.qty || ""),
+          unit: cleanCellText(r.unit || ""),
+          price: cleanCellText(r.price || ""),
+        };
+      });
+      return updated;
+    });
+
+    if (fixedCount > 0) {
+      showToast(`Cleaned & unwrapped line breaks across ${fixedCount} item(s)`);
+    } else {
+      showToast(`All description lines are continuous and clean`);
+    }
   };
 
   const handleDownloadExcel = async () => {
@@ -2261,6 +2286,16 @@ export default function QuotationBuilder() {
 
                       <button
                         type="button"
+                        onClick={unwrapAllDescriptions}
+                        className="bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1"
+                        title="Unwrap and fix premature line breaks in descriptions so text flows continuously"
+                      >
+                        <WrapText className="h-3 w-3 text-indigo-600" />
+                        <span>Unwrap Line Breaks</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={trimTrailingBlankRows}
                         className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1"
                         title="Remove blank empty lines from the end of the sheet"
@@ -2547,6 +2582,17 @@ export default function QuotationBuilder() {
           >
             <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
             <span>Paste / Import from Excel...</span>
+          </button>
+
+          <button 
+            onClick={() => {
+              unwrapAllDescriptions();
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-3.5 py-1.5 hover:bg-indigo-50 text-indigo-800 font-bold flex items-center gap-1.5"
+          >
+            <WrapText className="h-3.5 w-3.5 text-indigo-600" />
+            <span>Unwrap Line Breaks (Continuous Flow)</span>
           </button>
 
           <div className="my-1 border-t border-slate-100"></div>

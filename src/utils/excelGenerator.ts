@@ -28,8 +28,10 @@ const getBase64Image = async (url: string): Promise<{ base64: string; ext: strin
 };
 
 /**
- * Builds a single pristine worksheet matching the exact visual component
+ * Builds a single pristine worksheet matching the exact visual component.
  * Configured for 30 items per page with perfect A4 fit-to-1-page print setup.
+ * Completely eliminates overlapping text/logos, removes intermediate subtotal rows,
+ * and cleans up any gridlines in the footer/signature zone.
  */
 const buildDocumentWorksheet = (
   workbook: ExcelJS.Workbook,
@@ -70,7 +72,7 @@ const buildDocumentWorksheet = (
       footer: 0.15,
     },
     horizontalCentered: true,
-    showGridLines: true,
+    showGridLines: false, // Clean look without default gridlines spilling into footer
   };
 
   // Add centered Page number in Excel print footer
@@ -86,18 +88,18 @@ const buildDocumentWorksheet = (
   const totalCols = isChallan ? 4 : 6;
   const lastColLetter = isChallan ? "D" : "F";
 
-  // Set precise column widths (in characters)
+  // Set precise column widths
   if (isChallan) {
     worksheet.columns = [
-      { key: "A", width: 7.5 },  // SL (comfortably holds 3-4 digit numbers)
+      { key: "A", width: 7.5 },  // SL (Dedicated logo column in header, SL in table)
       { key: "B", width: 68.0 }, // Description
       { key: "C", width: 11.5 }, // Qty
       { key: "D", width: 13.0 }, // Unit
     ];
   } else {
     worksheet.columns = [
-      { key: "A", width: 6.5 },  // SL (comfortably holds 3-4 digit numbers)
-      { key: "B", width: 51.0 }, // Description (Broad & left aligned)
+      { key: "A", width: 7.0 },  // SL
+      { key: "B", width: 51.0 }, // Description
       { key: "C", width: 8.5 },  // Qty
       { key: "D", width: 9.5 },  // Unit
       { key: "E", width: 11.5 }, // Price
@@ -105,26 +107,27 @@ const buildDocumentWorksheet = (
     ];
   }
 
-  // Enable gridlines view
-  worksheet.views = [{ showGridLines: true }];
+  // Turn off default raw spreadsheet grid lines so our clean borders and blank signature areas stay crisp
+  worksheet.views = [{ showGridLines: false }];
 
-  // 1. Add Logo in top-left
+  // 1. Add Logo in merged A1:A4 (perfect fit, absolutely no overlap with Company Name in B1)
+  worksheet.mergeCells("A1:A4");
   if (logoId !== null) {
     worksheet.addImage(logoId, {
-      tl: { col: 0.05, row: 0.1 },
-      ext: { width: 85, height: 85 },
+      tl: { col: 0.08, row: 0.1 },
+      ext: { width: 52, height: 52 },
     });
   }
 
   // 2. Company title & services on the left header (Rows 1 to 4)
-  worksheet.getRow(1).height = 22;
+  worksheet.getRow(1).height = 20;
   worksheet.getRow(2).height = 14;
   worksheet.getRow(3).height = 13;
   worksheet.getRow(4).height = 13;
 
   const companyTitleCell = worksheet.getCell("B1");
   companyTitleCell.value = "COMILLA TRADERS";
-  companyTitleCell.font = { name: "Arial", size: 16, bold: true, color: { argb: "000000" } };
+  companyTitleCell.font = { name: "Arial", size: 15, bold: true, color: { argb: "000000" } };
   companyTitleCell.alignment = { vertical: "middle", horizontal: "left" };
 
   const companySub1 = worksheet.getCell("B2");
@@ -171,23 +174,23 @@ const buildDocumentWorksheet = (
       bottom: { style: "medium", color: { argb: "000000" } },
     };
   }
-  worksheet.getRow(5).height = 5;
-  worksheet.getRow(6).height = 6;
+  worksheet.getRow(5).height = 4;
+  worksheet.getRow(6).height = 5;
 
-  // 4. Document Title in Row 7 (with Page indicator if multi-page)
+  // 4. Document Title in Row 7
   worksheet.mergeCells(`A7:${lastColLetter}7`);
   const titleCell = worksheet.getCell("A7");
   const baseTitle = isChallan
-    ? "D E L I V E R Y   C H A L L A N"
+    ? "DELIVERY CHALLAN"
     : isInvoice
-    ? "I N V O I C E"
-    : "Q U O T A T I O N";
-  
+    ? "INVOICE"
+    : "QUOTATION";
+
   titleCell.value = totalPages > 1 ? `${baseTitle} (PAGE ${pageIndex} OF ${totalPages})` : baseTitle;
-  titleCell.font = { name: "Arial", size: 12.5, bold: true, color: { argb: "000000" } };
+  titleCell.font = { name: "Arial", size: 12, bold: true, color: { argb: "000000" } };
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
-  worksheet.getRow(7).height = 22;
-  worksheet.getRow(8).height = 6;
+  worksheet.getRow(7).height = 20;
+  worksheet.getRow(8).height = 5;
 
   // 5. Metadata Boxes (Rows 10 to 14)
   const leftBoxWidth = Math.floor(totalCols / 2);
@@ -201,7 +204,7 @@ const buildDocumentWorksheet = (
   worksheet.mergeCells(`A11:${leftBoxEndColLetter}11`);
   const messersCell = worksheet.getCell("A11");
   messersCell.value = messers || "";
-  messersCell.font = { name: "Arial", size: 9, bold: true, color: { argb: "000000" } };
+  messersCell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "000000" } };
   messersCell.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
   worksheet.getCell("A12").value = "ADDRESS:";
@@ -327,11 +330,11 @@ const buildDocumentWorksheet = (
     }
   }
 
-  worksheet.getRow(15).height = 6;
+  worksheet.getRow(15).height = 5;
 
   // 6. Main Table Header (Row 16)
   const headerRow = worksheet.getRow(16);
-  headerRow.height = 20;
+  headerRow.height = 19;
 
   const colHeaders = isChallan
     ? ["SL", "Description of Marine Items / Spare Parts", "Qty", "Unit"]
@@ -366,7 +369,7 @@ const buildDocumentWorksheet = (
 
   for (let idx = 0; idx < ITEMS_PER_PAGE; idx++) {
     const r = worksheet.getRow(currentRowNum);
-    r.height = 17; // 17pt height allows 30 items + header + signatures to comfortably fit 1 page tall on A4
+    r.height = 16.5; // Perfect height for 30 items fitting cleanly on A4
 
     const rowData = pageRows[idx];
     const slVal = startSlIndex + idx;
@@ -374,13 +377,13 @@ const buildDocumentWorksheet = (
     const qtyVal = rowData && rowData.qty ? parseFloat(String(rowData.qty).replace(/,/g, "")) : "";
     const unitVal = rowData ? rowData.unit : "";
 
-    // Set SL (Three-digit compatible)
+    // Set SL
     const cellSL = r.getCell(1);
     cellSL.value = rowData || idx < pageRows.length ? slVal : "";
     cellSL.alignment = { vertical: "middle", horizontal: "center" };
     cellSL.font = { name: "Arial", size: 8 };
 
-    // Set Description (Clean, broad, left aligned, wrapText)
+    // Set Description
     const cellDesc = r.getCell(2);
     cellDesc.value = descVal;
     cellDesc.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
@@ -401,7 +404,7 @@ const buildDocumentWorksheet = (
     cellUnit.alignment = { vertical: "middle", horizontal: "center" };
     cellUnit.font = { name: "Arial", size: 8 };
 
-    // Borders
+    // Cell Borders
     for (let col = 1; col <= totalCols; col++) {
       const cell = r.getCell(col);
       cell.border = {
@@ -476,8 +479,8 @@ const buildDocumentWorksheet = (
     }
   });
 
-  // 8. Totals & Words Block (Presented on the Final Page)
-  if (!isChallan) {
+  // 8. Totals & Words Block (Strictly rendered ONLY on the FINAL page, NEVER on intermediate pages)
+  if (!isChallan && isLastPage) {
     const totalRow = currentRowNum;
     const numTotalRows = isInvoice ? 4 : 1;
 
@@ -498,14 +501,9 @@ const buildDocumentWorksheet = (
     const calculatedVat = isInvoice ? (subtotalValue * (vatPercent || 0)) / 100 : 0;
     const finalGrandTotal = isInvoice ? subtotalValue + calculatedVat + (transportationFee || 0) : subtotalValue;
 
-    if (isLastPage) {
-      const words = numberToWords(Math.round(finalGrandTotal));
-      const wordsStr = words ? words.toUpperCase() : "ZERO TAKA ONLY";
-      wordCell.value = `AMOUNT IN WORDS: ${wordsStr}`;
-    } else {
-      const pageSubtotal = pageRows.reduce((sum, r) => sum + r.amount, 0);
-      wordCell.value = `PAGE ${pageIndex} SUBTOTAL: BDT ${pageSubtotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (CONTINUED ON NEXT PAGE)`;
-    }
+    const words = numberToWords(Math.round(finalGrandTotal));
+    const wordsStr = words ? words.toUpperCase() : "ZERO TAKA ONLY";
+    wordCell.value = `AMOUNT IN WORDS: ${wordsStr}`;
 
     wordCell.font = { name: "Arial", size: 7.5, bold: true, italic: true, color: { argb: "000000" } };
     wordCell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
@@ -528,12 +526,12 @@ const buildDocumentWorksheet = (
 
     if (isInvoice) {
       // Row 1: SUBTOTAL
-      worksheet.getCell(`E${totalRow}`).value = isLastPage && totalPages > 1 ? "GRAND SUBTOTAL" : "SUBTOTAL";
+      worksheet.getCell(`E${totalRow}`).value = totalPages > 1 ? "GRAND SUBTOTAL" : "SUBTOTAL";
       worksheet.getCell(`E${totalRow}`).font = { name: "Arial", size: 8, bold: true };
       worksheet.getCell(`E${totalRow}`).alignment = { vertical: "middle", horizontal: "right" };
 
       const subtotalValCell = worksheet.getCell(`F${totalRow}`);
-      if (totalPages === 1 || !isLastPage) {
+      if (totalPages === 1) {
         subtotalValCell.value = { formula: `=SUM(${sumRange})` } as any;
       } else {
         subtotalValCell.value = subtotalValue;
@@ -548,7 +546,7 @@ const buildDocumentWorksheet = (
       worksheet.getCell(`E${totalRow + 1}`).alignment = { vertical: "middle", horizontal: "right" };
 
       const vatValCell = worksheet.getCell(`F${totalRow + 1}`);
-      vatValCell.value = isLastPage ? calculatedVat : 0;
+      vatValCell.value = calculatedVat;
       vatValCell.font = { name: "Arial", size: 8, bold: true };
       vatValCell.alignment = { vertical: "middle", horizontal: "right" };
       vatValCell.numFmt = "#,##0.00";
@@ -559,7 +557,7 @@ const buildDocumentWorksheet = (
       worksheet.getCell(`E${totalRow + 2}`).alignment = { vertical: "middle", horizontal: "right" };
 
       const transValCell = worksheet.getCell(`F${totalRow + 2}`);
-      transValCell.value = isLastPage ? transportationFee || 0 : 0;
+      transValCell.value = transportationFee || 0;
       transValCell.font = { name: "Arial", size: 8, bold: true };
       transValCell.alignment = { vertical: "middle", horizontal: "right" };
       transValCell.numFmt = "#,##0.00";
@@ -570,7 +568,7 @@ const buildDocumentWorksheet = (
       worksheet.getCell(`E${totalRow + 3}`).alignment = { vertical: "middle", horizontal: "right" };
 
       const grandValCell = worksheet.getCell(`F${totalRow + 3}`);
-      grandValCell.value = isLastPage ? finalGrandTotal : pageRows.reduce((sum, r) => sum + r.amount, 0);
+      grandValCell.value = finalGrandTotal;
       grandValCell.font = { name: "Arial", size: 9, bold: true };
       grandValCell.alignment = { vertical: "middle", horizontal: "right" };
       grandValCell.numFmt = "#,##0.00";
@@ -589,12 +587,12 @@ const buildDocumentWorksheet = (
       }
     } else {
       // Row 1: TOTAL for Quotation
-      worksheet.getCell(`E${totalRow}`).value = isLastPage && totalPages > 1 ? "GRAND TOTAL" : "TOTAL";
+      worksheet.getCell(`E${totalRow}`).value = totalPages > 1 ? "GRAND TOTAL" : "TOTAL";
       worksheet.getCell(`E${totalRow}`).font = { name: "Arial", size: 8, bold: true };
       worksheet.getCell(`E${totalRow}`).alignment = { vertical: "middle", horizontal: "right" };
 
       const valCell = worksheet.getCell(`F${totalRow}`);
-      if (totalPages === 1 || !isLastPage) {
+      if (totalPages === 1) {
         valCell.value = { formula: `=SUM(${sumRange})` } as any;
       } else {
         valCell.value = subtotalValue;
@@ -615,52 +613,60 @@ const buildDocumentWorksheet = (
     }
 
     currentRowNum = totalRow + numTotalRows;
-  } else {
-    currentRowNum = currentRowNum + 1;
   }
 
-  // 9. Signatures Row
-  const sigRow = currentRowNum + 2;
+  // 9. Signatures Area
+  // Blank spacer row (no borders, clean spacing)
+  worksheet.getRow(currentRowNum).height = 12;
+  currentRowNum++;
+
+  // "For Comilla Traders" row (Quotation & Invoice)
+  if (!isChallan) {
+    const authHeaderRow = currentRowNum;
+    worksheet.getRow(authHeaderRow).height = 14;
+    worksheet.mergeCells(`E${authHeaderRow}:F${authHeaderRow}`);
+    const authTitle = worksheet.getCell(`E${authHeaderRow}`);
+    authTitle.value = "For Comilla Traders";
+    authTitle.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+    authTitle.alignment = { vertical: "middle", horizontal: "center" };
+    currentRowNum++;
+  }
+
+  // Spacer between header & signature lines
+  worksheet.getRow(currentRowNum).height = 20;
+  const sigRow = currentRowNum + 1;
   worksheet.getRow(sigRow).height = 16;
 
-  // Receiver's Signature
+  // Receiver's Signature (Merged A to B with a single clean top line)
   worksheet.mergeCells(`A${sigRow}:B${sigRow}`);
   const recSig = worksheet.getCell(`A${sigRow}`);
   recSig.value = "Receiver's Signature";
   recSig.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
   recSig.alignment = { vertical: "middle", horizontal: "center" };
+  recSig.border = { top: { style: "thin", color: { argb: "000000" } } };
 
-  worksheet.getCell(`A${sigRow}`).border = { top: { style: "thin", color: { argb: "000000" } } };
-  worksheet.getCell(`B${sigRow}`).border = { top: { style: "thin", color: { argb: "000000" } } };
+  // Authorized Signature (Right side with a single clean top line)
+  const authColStart = isChallan ? "C" : "E";
+  const authColEnd = isChallan ? "D" : "F";
+  worksheet.mergeCells(`${authColStart}${sigRow}:${authColEnd}${sigRow}`);
+  const authSig = worksheet.getCell(`${authColStart}${sigRow}`);
+  authSig.value = "Authorized Signature";
+  authSig.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+  authSig.alignment = { vertical: "middle", horizontal: "center" };
+  authSig.border = { top: { style: "thin", color: { argb: "000000" } } };
 
-  // Authorized Signature and stamp image (Quotation & Invoice)
-  if (!isChallan) {
-    const authTitleRow = sigRow - 2;
-    worksheet.mergeCells(`E${authTitleRow}:F${authTitleRow}`);
-    const authTitle = worksheet.getCell(`E${authTitleRow}`);
-    authTitle.value = "For Comilla Traders";
-    authTitle.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
-    authTitle.alignment = { vertical: "middle", horizontal: "center" };
-
-    worksheet.mergeCells(`E${sigRow}:F${sigRow}`);
-    const authSig = worksheet.getCell(`E${sigRow}`);
-    authSig.value = "Authorized Signature";
-    authSig.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
-    authSig.alignment = { vertical: "middle", horizontal: "center" };
-
-    worksheet.getCell(`E${sigRow}`).border = { top: { style: "thin", color: { argb: "000000" } } };
-    worksheet.getCell(`F${sigRow}`).border = { top: { style: "thin", color: { argb: "000000" } } };
-
-    if (stampId !== null) {
-      worksheet.addImage(stampId, {
-        tl: { col: 4.15, row: sigRow - 2.8 },
-        ext: { width: 75, height: 75 },
-      });
-    }
+  // Add Official Stamp cleanly positioned above the signature line without obscuring text
+  if (!isChallan && stampId !== null) {
+    worksheet.addImage(stampId, {
+      tl: { col: 4.2, row: sigRow - 2.2 },
+      ext: { width: 62, height: 62 },
+    });
   }
 
   // 10. Footer Disclaimer Notice
   const noticeRow = sigRow + 2;
+  worksheet.getRow(sigRow + 1).height = 8;
+  worksheet.getRow(noticeRow).height = 14;
   worksheet.mergeCells(`A${noticeRow}:${lastColLetter}${noticeRow}`);
   const noticeCell = worksheet.getCell(`A${noticeRow}`);
   noticeCell.value = "ITEMS ONCE SOLD ARE NON-RETURNABLE AND NON-EXCHANGEABLE.";
@@ -669,9 +675,9 @@ const buildDocumentWorksheet = (
 };
 
 /**
- * Generates complete multi-sheet Excel Workbook with Quotation, Delivery Challan, and Invoice tabs.
- * Automatically slices rows into distinct sheets of 30 items each (e.g. Quotation Pg 1, Quotation Pg 2, etc.),
- * perfectly formatted to fit 1 page tall on A4.
+ * Generates complete multi-sheet Excel Workbook for the currently selected document type.
+ * Automatically divides items into batches of 30 per sheet with clean headers, no overlapping elements,
+ * no intermediate subtotals, and no unwanted gridlines in signature areas.
  */
 export const generateExcelWorkbook = async (
   docType: "quotation" | "challan" | "invoice",

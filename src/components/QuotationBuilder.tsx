@@ -629,8 +629,22 @@ export default function QuotationBuilder() {
     addRows(1);
   };
 
+  const MAX_LINES_LIMIT = 1000;
+
   const addRows = (count: number) => {
-    const qtyToAdd = Math.max(1, Math.min(1000, count));
+    if (rows.length >= MAX_LINES_LIMIT) {
+      showToast(`Maximum limit of ${MAX_LINES_LIMIT.toLocaleString()} lines reached`);
+      return;
+    }
+    const availableSlots = MAX_LINES_LIMIT - rows.length;
+    const requestedCount = Math.max(1, count);
+    const qtyToAdd = Math.min(requestedCount, availableSlots);
+
+    if (qtyToAdd <= 0) {
+      showToast(`Maximum limit of ${MAX_LINES_LIMIT.toLocaleString()} lines reached`);
+      return;
+    }
+
     setRows((prevRows) => {
       const newRows = [...prevRows];
       const startIdx = newRows.length;
@@ -646,11 +660,16 @@ export default function QuotationBuilder() {
       }
       return newRows;
     });
-    showToast(`Added ${qtyToAdd} line${qtyToAdd > 1 ? "s" : ""}`);
+
+    if (qtyToAdd < requestedCount) {
+      showToast(`Added ${qtyToAdd} lines (reached ${MAX_LINES_LIMIT.toLocaleString()} line limit)`);
+    } else {
+      showToast(`Added ${qtyToAdd} line${qtyToAdd > 1 ? "s" : ""}`);
+    }
   };
 
   const setExactTotalRows = (targetCount: number) => {
-    const count = Math.max(1, Math.min(1000, targetCount));
+    const count = Math.max(1, Math.min(MAX_LINES_LIMIT, targetCount));
     setRows((prevRows) => {
       if (count === prevRows.length) return prevRows;
       if (count > prevRows.length) {
@@ -716,7 +735,16 @@ export default function QuotationBuilder() {
   };
 
   const insertMultipleRows = (index: number, position: 'above' | 'below', count: number = 1) => {
-    const qty = Math.max(1, count);
+    if (rows.length >= MAX_LINES_LIMIT) {
+      showToast(`Maximum limit of ${MAX_LINES_LIMIT.toLocaleString()} lines reached`);
+      return;
+    }
+    const availableSlots = MAX_LINES_LIMIT - rows.length;
+    const qty = Math.min(Math.max(1, count), availableSlots);
+    if (qty <= 0) {
+      showToast(`Maximum limit of ${MAX_LINES_LIMIT.toLocaleString()} lines reached`);
+      return;
+    }
     const insertAt = position === 'above' ? index : index + 1;
     setRows((prevRows) => {
       const updated = [...prevRows];
@@ -732,7 +760,7 @@ export default function QuotationBuilder() {
         });
       }
       updated.splice(insertAt, 0, ...newItems);
-      return updated.map((r, i) => ({
+      return updated.slice(0, MAX_LINES_LIMIT).map((r, i) => ({
         ...r,
         sl: i + 1
       }));
@@ -758,9 +786,9 @@ export default function QuotationBuilder() {
     setRows((prevRows) => {
       let result: QuotationRow[] = [];
       if (mode === "replace") {
-        result = [...newRows];
+        result = newRows.slice(0, MAX_LINES_LIMIT);
         // Ensure at least 20 blank rows if fewer
-        while (result.length < 20) {
+        while (result.length < Math.min(20, MAX_LINES_LIMIT)) {
           result.push({
             sl: result.length + 1,
             desc: "",
@@ -774,8 +802,8 @@ export default function QuotationBuilder() {
       } else if (mode === "append") {
         const isCurrentSheetEmpty = prevRows.every(r => !r.desc.trim() && !r.qty.trim() && !r.unit.trim() && !r.price.trim());
         if (isCurrentSheetEmpty && prevRows.length <= 20) {
-          result = [...newRows];
-          while (result.length < Math.max(20, newRows.length)) {
+          result = newRows.slice(0, MAX_LINES_LIMIT);
+          while (result.length < Math.min(20, MAX_LINES_LIMIT)) {
             result.push({
               sl: result.length + 1,
               desc: "",
@@ -786,14 +814,14 @@ export default function QuotationBuilder() {
             });
           }
         } else {
-          result = [...prevRows, ...newRows];
+          result = [...prevRows, ...newRows].slice(0, MAX_LINES_LIMIT);
         }
       } else if (mode === "insert_at") {
         const updated = [...prevRows];
         updated.splice(insertIndex, 0, ...newRows);
-        result = updated;
+        result = updated.slice(0, MAX_LINES_LIMIT);
       }
-      showToast(`Imported ${newRows.length} lines from Excel successfully!`);
+      showToast(`Imported ${Math.min(newRows.length, MAX_LINES_LIMIT)} lines from Excel successfully!`);
       return result.map((r, i) => ({ ...r, sl: i + 1 }));
     });
   };
@@ -1209,6 +1237,8 @@ export default function QuotationBuilder() {
 
       dataRows.forEach((cols, rOffset) => {
         const rIndex = startRowIndex + rOffset;
+        if (rIndex >= MAX_LINES_LIMIT) return;
+
         if (rIndex >= updated.length) {
           updated.push({
             sl: updated.length + 1,
@@ -2219,36 +2249,89 @@ export default function QuotationBuilder() {
                   </table>
                 </div>
 
-                {/* Grid Line Actions & Dynamic Row Controller (Single Line with only Plus and Minus) */}
-                <div className="no-print print:hidden my-2.5 px-3 py-2 bg-gradient-to-r from-slate-50 via-indigo-50/30 to-slate-50 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-2">
-                  {/* Plus and Minus line buttons */}
-                  <div className="flex items-center gap-2">
+                {/* Grid Line Actions & Dynamic Row Controller */}
+                <div className="no-print print:hidden my-2.5 px-3 py-2 bg-gradient-to-r from-slate-50 via-indigo-50/30 to-slate-50 rounded-xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                  {/* Plus/Minus & Batch Line Adders */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Add 1 Line */}
                     <button
                       type="button"
                       onClick={() => addRows(1)}
-                      className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs h-8 px-3.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                      title="Add line (+)"
+                      className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs h-8 px-3 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Add 1 line (+)"
                     >
                       <Plus className="h-4 w-4 stroke-[2.5]" />
-                      <span>Line</span>
+                      <span>+1 Line</span>
                     </button>
 
+                    {/* Subtract 1 Line */}
                     <button
                       type="button"
                       onClick={removeRow}
                       disabled={rows.length <= 1}
-                      className="bg-white hover:bg-rose-50 active:scale-95 border border-rose-200 text-rose-600 font-bold text-xs h-8 px-3.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="bg-white hover:bg-rose-50 active:scale-95 border border-rose-200 text-rose-600 font-bold text-xs h-8 px-2.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
                       title="Subtract line (-)"
                     >
                       <Minus className="h-4 w-4 stroke-[2.5]" />
-                      <span>Line</span>
+                      <span>-1</span>
                     </button>
+
+                    <div className="h-5 w-[1px] bg-slate-200 mx-0.5 hidden sm:block" />
+
+                    {/* Minimal quick add multiple lines */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const num = parseInt(customRowCountInput, 10);
+                        if (!isNaN(num) && num > 0) {
+                          addRows(num);
+                        }
+                      }}
+                      className="flex items-center gap-1 bg-white border border-slate-300 hover:border-indigo-400 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 rounded-lg p-0.5 transition-all shadow-2xs"
+                    >
+                      <span className="text-[11px] font-semibold text-slate-500 pl-2">Add</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="1000"
+                        value={customRowCountInput}
+                        onChange={(e) => setCustomRowCountInput(e.target.value)}
+                        placeholder="10"
+                        className="w-14 h-6.5 text-center text-xs font-mono font-bold text-slate-800 border-none outline-none focus:outline-none bg-slate-50 rounded px-1"
+                        title="Enter number of lines to add at once (max 1,000 total)"
+                      />
+                      <button
+                        type="submit"
+                        disabled={rows.length >= 1000}
+                        className="bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white disabled:opacity-40 disabled:hover:bg-indigo-50 disabled:hover:text-indigo-700 font-bold text-xs h-6.5 px-2.5 rounded transition-all cursor-pointer flex items-center gap-1"
+                        title="Add specified number of lines (limit 1,000)"
+                      >
+                        <Plus className="h-3 w-3 stroke-[2.5]" />
+                        <span>Lines</span>
+                      </button>
+                    </form>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="hidden md:flex items-center gap-1">
+                      {[5, 10, 20, 50].map((count) => (
+                        <button
+                          key={count}
+                          type="button"
+                          disabled={rows.length >= 1000}
+                          onClick={() => addRows(count)}
+                          className="bg-white hover:bg-slate-100 active:scale-95 disabled:opacity-40 text-slate-600 hover:text-indigo-600 border border-slate-200 font-semibold text-[11px] h-7 px-2 rounded-md transition-all cursor-pointer"
+                          title={`Quick add +${count} lines`}
+                        >
+                          +{count}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Status counter */}
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold">
-                    <span className="bg-slate-200/80 text-slate-700 px-2.5 py-1 rounded-md font-mono text-[11px]">
-                      Lines: <strong className="text-slate-900">{rows.length}</strong>
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold shrink-0">
+                    <span className="bg-slate-200/80 text-slate-700 px-2.5 py-1 rounded-md font-mono text-[11px]" title="Total Lines / 1,000 Max Limit">
+                      Total: <strong className="text-slate-900">{rows.length}</strong> / 1000
                     </span>
                     <span className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-md font-mono text-[11px]">
                       Filled: <strong>{rows.filter(r => r.desc.trim() || r.qty.trim() || r.unit.trim() || r.price.trim()).length}</strong>

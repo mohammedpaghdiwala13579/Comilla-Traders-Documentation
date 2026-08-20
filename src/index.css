@@ -39,9 +39,20 @@ input[type="number"] {
   @page {
     size: A4 portrait;
     margin-top: 8mm;
-    margin-bottom: 10mm;
+    margin-bottom: 12mm;
     margin-left: 8mm;
     margin-right: 8mm;
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 7.5pt;
+      font-family: Arial, sans-serif;
+      font-weight: bold;
+      color: #334155;
+    }
+  }
+
+  body {
+    counter-reset: page;
   }
 
   html, body {

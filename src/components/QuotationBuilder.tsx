@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
-import { Download, Printer, Calendar, Save, Trash2, Plus, Check, RefreshCw, Copy, X, FileSpreadsheet, Layers, ListPlus, ArrowDownToLine, CheckCheck, Scissors, WrapText } from "lucide-react";
+import { Download, Printer, Calendar, Save, Trash2, Plus, Minus, Check, RefreshCw, Copy, X, FileSpreadsheet, Layers, ListPlus, ArrowDownToLine, CheckCheck, Scissors, WrapText } from "lucide-react";
 import { db } from "../lib/firebase";
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { numberToWords } from "../utils/numberToWords";
@@ -2219,145 +2219,40 @@ export default function QuotationBuilder() {
                   </table>
                 </div>
 
-                {/* Grid Line Actions & Dynamic Row Controller */}
-                <div className="no-print print:hidden my-3 p-3 bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 rounded-xl border border-slate-200/80 shadow-xs space-y-2.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    
-                    {/* Left: Quick Add & Custom Add */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-700 mr-1 flex items-center gap-1">
-                        <ListPlus className="h-3.5 w-3.5 text-indigo-600" />
-                        <span>Add Lines:</span>
-                      </span>
+                {/* Grid Line Actions & Dynamic Row Controller (Single Line with only Plus and Minus) */}
+                <div className="no-print print:hidden my-2.5 px-3 py-2 bg-gradient-to-r from-slate-50 via-indigo-50/30 to-slate-50 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-2">
+                  {/* Plus and Minus line buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => addRows(1)}
+                      className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs h-8 px-3.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Add line (+)"
+                    >
+                      <Plus className="h-4 w-4 stroke-[2.5]" />
+                      <span>Line</span>
+                    </button>
 
-                      {[1, 5, 10, 25, 50, 100].map((count) => (
-                        <button
-                          key={count}
-                          type="button"
-                          onClick={() => addRows(count)}
-                          className="bg-white hover:bg-indigo-600 hover:text-white border border-slate-300 hover:border-indigo-600 text-slate-700 font-extrabold text-[10px] px-2.5 py-1 rounded-md shadow-2xs transition-all cursor-pointer"
-                          title={`Add ${count} blank row(s) to the bottom`}
-                        >
-                          +{count}
-                        </button>
-                      ))}
-
-                      {/* Custom Row Adder Input */}
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          const val = parseInt(customRowCountInput, 10);
-                          if (!isNaN(val) && val > 0) {
-                            addRows(val);
-                          }
-                        }}
-                        className="flex items-center gap-1 ml-1 bg-white p-0.5 rounded-md border border-slate-300 shadow-2xs"
-                      >
-                        <input
-                          type="number"
-                          min="1"
-                          max="1000"
-                          value={customRowCountInput}
-                          onChange={(e) => setCustomRowCountInput(e.target.value)}
-                          placeholder="Qty"
-                          className="w-12 text-center text-[10px] font-bold text-slate-800 outline-none border-none p-0.5 bg-transparent"
-                          title="Type any number of rows to add"
-                        />
-                        <button
-                          type="submit"
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[9px] px-2 py-1 rounded transition-colors uppercase tracking-wider cursor-pointer"
-                        >
-                          Add
-                        </button>
-                      </form>
-                    </div>
-
-                    {/* Right: Excel Paste & Row Utilities */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setIsExcelModalOpen(true)}
-                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-[10px] px-3 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5 uppercase tracking-wider"
-                        title="Open Excel Smart Importer modal or paste clipboard"
-                      >
-                        <FileSpreadsheet className="h-3.5 w-3.5" />
-                        <span>Paste from Excel</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={unwrapAllDescriptions}
-                        className="bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1"
-                        title="Unwrap and fix premature line breaks in descriptions so text flows continuously"
-                      >
-                        <WrapText className="h-3 w-3 text-indigo-600" />
-                        <span>Unwrap Line Breaks</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={trimTrailingBlankRows}
-                        className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1"
-                        title="Remove blank empty lines from the end of the sheet"
-                      >
-                        <Scissors className="h-3 w-3 text-slate-500" />
-                        <span>Trim Blank Lines</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={removeRow}
-                        disabled={rows.length <= 1}
-                        className="bg-white hover:bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
-                        title="Remove 1 row from bottom"
-                      >
-                        <Trash2 className="h-3 w-3 text-rose-500" />
-                        <span>-1 Line</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={removeRow}
+                      disabled={rows.length <= 1}
+                      className="bg-white hover:bg-rose-50 active:scale-95 border border-rose-200 text-rose-600 font-bold text-xs h-8 px-3.5 rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Subtract line (-)"
+                    >
+                      <Minus className="h-4 w-4 stroke-[2.5]" />
+                      <span>Line</span>
+                    </button>
                   </div>
 
-                  {/* Second sub-bar: Exact Row Resize & Status counter */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60 text-[10px]">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-600">Set exact total rows:</span>
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          const val = parseInt(targetTotalRowCountInput, 10);
-                          if (!isNaN(val) && val > 0) {
-                            setExactTotalRows(val);
-                            setTargetTotalRowCountInput("");
-                          }
-                        }}
-                        className="flex items-center gap-1"
-                      >
-                        <input
-                          type="number"
-                          min="1"
-                          max="1000"
-                          value={targetTotalRowCountInput}
-                          onChange={(e) => setTargetTotalRowCountInput(e.target.value)}
-                          placeholder={`${rows.length}`}
-                          className="w-14 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-center text-[10px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                        <button
-                          type="submit"
-                          className="bg-slate-700 hover:bg-slate-800 text-white font-bold px-2 py-0.5 rounded transition-colors cursor-pointer"
-                        >
-                          Resize
-                        </button>
-                      </form>
-                    </div>
-
-                    <div className="flex items-center gap-2 font-mono text-[10px] text-slate-500 font-semibold">
-                      <span className="bg-slate-200/70 text-slate-700 px-2 py-0.5 rounded">
-                        Total Lines: <strong className="text-slate-900">{rows.length}</strong>
-                      </span>
-                      <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">
-                        Filled Lines: <strong>{rows.filter(r => r.desc.trim() || r.qty.trim() || r.unit.trim() || r.price.trim()).length}</strong>
-                      </span>
-                    </div>
+                  {/* Status counter */}
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold">
+                    <span className="bg-slate-200/80 text-slate-700 px-2.5 py-1 rounded-md font-mono text-[11px]">
+                      Lines: <strong className="text-slate-900">{rows.length}</strong>
+                    </span>
+                    <span className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-md font-mono text-[11px]">
+                      Filled: <strong>{rows.filter(r => r.desc.trim() || r.qty.trim() || r.unit.trim() || r.price.trim()).length}</strong>
+                    </span>
                   </div>
                 </div>
 

@@ -65,6 +65,13 @@ const buildDocumentWorksheet = (
     },
     horizontalCentered: true,
     printTitlesRow: "16:16", // Repeat table header on multi-page printouts
+    showGridLines: true,
+  };
+
+  // Add centered Page number in Excel print footer ("Page &P of &N")
+  worksheet.headerFooter = {
+    oddFooter: "&C&P / &N",
+    evenFooter: "&C&P / &N",
   };
 
   (worksheet.properties as any).pageSetUpPr = { fitToPage: true };

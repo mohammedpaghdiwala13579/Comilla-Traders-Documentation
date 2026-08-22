@@ -80,10 +80,10 @@ export const paginateRowsForExcel = (
   const isInvoice = docType === "invoice";
   
   // Maximum usable vertical height budget for items on A4 page (in points)
-  // Regular intermediate pages: Header (157pt) + Footer (17pt) = 174pt. Available = 560pt.
+  // Header: Row 1 (20pt) + Metadata (65pt) + Table Header (18pt) = 103pt.
   // Last page: Available accounts for Totals and Signature/Stamp blocks.
-  const REGULAR_PAGE_BUDGET = 560; 
-  const LAST_PAGE_BUDGET = isChallan ? 560 : isInvoice ? 475 : 515;
+  const REGULAR_PAGE_BUDGET = 600; 
+  const LAST_PAGE_BUDGET = isChallan ? 600 : isInvoice ? 490 : 530;
 
   const chunks: ExcelPageChunk[] = [];
   let currentChunk: QuotationRow[] = [];
@@ -235,15 +235,10 @@ const buildDocumentWorksheet = (
   // Standard Excel grid lines enabled for easy editing
   worksheet.views = [{ showGridLines: true }];
 
-  // 1. Leave 10 average size blank rows at the top (Rows 1 to 10) instead of the previous company header
-  for (let r = 1; r <= 10; r++) {
-    worksheet.getRow(r).height = 15;
-  }
-
-  // 2. Document Title in Row 11 (Clean title)
-  worksheet.getRow(11).height = 19;
-  worksheet.mergeCells(`A11:${lastColLetter}11`);
-  const titleCell = worksheet.getCell("A11");
+  // 1. Format Title in Row 1 (Center of page)
+  worksheet.getRow(1).height = 22;
+  worksheet.mergeCells(`A1:${lastColLetter}1`);
+  const titleCell = worksheet.getCell("A1");
   const baseTitle = isChallan
     ? "DELIVERY CHALLAN"
     : isInvoice
@@ -251,167 +246,169 @@ const buildDocumentWorksheet = (
     : "QUOTATION";
 
   titleCell.value = baseTitle;
-  titleCell.font = { name: "Arial", size: 11.5, bold: true, color: { argb: "000000" } };
+  titleCell.font = { name: "Arial", size: 12, bold: true, color: { argb: "000000" } };
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
 
-  // 3. Metadata Boxes (Rows 12 to 16 - Compact, tightly placed)
-  worksheet.mergeCells("A12:B12");
-  worksheet.getCell("A12").value = "MESSERS:";
-  worksheet.getCell("A12").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+  // 2. Metadata Boxes (Rows 2 to 6 - Compact, tightly placed)
+  // Left Box: Messers & Address
+  worksheet.mergeCells("A2:B2");
+  worksheet.getCell("A2").value = "MESSERS:";
+  worksheet.getCell("A2").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
 
-  worksheet.mergeCells("A13:B13");
-  const messersCell = worksheet.getCell("A13");
+  worksheet.mergeCells("A3:B3");
+  const messersCell = worksheet.getCell("A3");
   messersCell.value = messers || "";
   messersCell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "000000" } };
   messersCell.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-  worksheet.mergeCells("A14:B14");
-  worksheet.getCell("A14").value = "ADDRESS:";
-  worksheet.getCell("A14").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+  worksheet.mergeCells("A4:B4");
+  worksheet.getCell("A4").value = "ADDRESS:";
+  worksheet.getCell("A4").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
 
-  worksheet.mergeCells("A15:B16");
-  const addrCell = worksheet.getCell("A15");
+  worksheet.mergeCells("A5:B6");
+  const addrCell = worksheet.getCell("A5");
   addrCell.value = address || "";
   addrCell.font = { name: "Arial", size: 8, color: { argb: "000000" } };
   addrCell.alignment = { vertical: "top", wrapText: true };
   addrCell.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-  // Left Box outer borders
-  for (let r = 12; r <= 16; r++) {
-    worksheet.getRow(r).height = 13;
+  // Left Box outer borders (Rows 2 to 6)
+  for (let r = 2; r <= 6; r++) {
+    worksheet.getRow(r).height = 13.5;
     for (let c = 1; c <= 2; c++) {
       const cell = worksheet.getCell(r, c);
       const cellBorders: any = { ...cell.border };
-      if (r === 12) cellBorders.top = { style: "thin", color: { argb: "000000" } };
-      if (r === 16) cellBorders.bottom = { style: "thin", color: { argb: "000000" } };
+      if (r === 2) cellBorders.top = { style: "thin", color: { argb: "000000" } };
+      if (r === 6) cellBorders.bottom = { style: "thin", color: { argb: "000000" } };
       if (c === 1) cellBorders.left = { style: "thin", color: { argb: "000000" } };
       if (c === 2) cellBorders.right = { style: "thin", color: { argb: "000000" } };
       cell.border = cellBorders;
     }
   }
 
-  // Right Box (Rows 12 to 16)
+  // Right Box (Rows 2 to 6) - DATE is strictly placed at the TOP in every format
   if (isInvoice) {
-    // Row 12: INVOICE NO
-    worksheet.mergeCells("C12:D12");
-    worksheet.getCell("C12").value = "INVOICE NO.:";
-    worksheet.getCell("C12").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    worksheet.mergeCells("E12:F12");
-    const iVal = worksheet.getCell("E12");
+    // Row 2 (TOP): DATE
+    worksheet.mergeCells("C2:D2");
+    worksheet.getCell("C2").value = "DATE:";
+    worksheet.getCell("C2").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E2:F2");
+    const dVal = worksheet.getCell("E2");
+    dVal.value = dateVal || "";
+    dVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+    dVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
+
+    // Row 3: INVOICE NO
+    worksheet.mergeCells("C3:D3");
+    worksheet.getCell("C3").value = "INVOICE NO.:";
+    worksheet.getCell("C3").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E3:F3");
+    const iVal = worksheet.getCell("E3");
     iVal.value = invoiceNo || "";
     iVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     iVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-    // Row 13: DATE
-    worksheet.mergeCells("C13:D13");
-    worksheet.getCell("C13").value = "DATE:";
-    worksheet.getCell("C13").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    worksheet.mergeCells("E13:F13");
-    const dVal = worksheet.getCell("E13");
-    dVal.value = dateVal || "";
-    dVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
-    dVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
-
-    // Row 14: CHALLAN NO
-    worksheet.mergeCells("C14:D14");
-    worksheet.getCell("C14").value = "CHALLAN NO.:";
-    worksheet.getCell("C14").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    worksheet.mergeCells("E14:F14");
-    const cVal = worksheet.getCell("E14");
+    // Row 4: CHALLAN NO
+    worksheet.mergeCells("C4:D4");
+    worksheet.getCell("C4").value = "CHALLAN NO.:";
+    worksheet.getCell("C4").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E4:F4");
+    const cVal = worksheet.getCell("E4");
     cVal.value = challanNo || "";
     cVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     cVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-    // Row 15: REQUISITION NO
-    worksheet.mergeCells("C15:D15");
-    worksheet.getCell("C15").value = "REQUISITION NO.:";
-    worksheet.getCell("C15").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    worksheet.mergeCells("E15:F15");
-    const rVal = worksheet.getCell("E15");
+    // Row 5: REQUISITION NO
+    worksheet.mergeCells("C5:D5");
+    worksheet.getCell("C5").value = "REQUISITION NO.:";
+    worksheet.getCell("C5").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E5:F5");
+    const rVal = worksheet.getCell("E5");
     rVal.value = requisitionNo || "";
     rVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     rVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-    // Row 16: P.O. NUMBER
-    worksheet.mergeCells("C16:D16");
-    worksheet.getCell("C16").value = "P.O. NUMBER:";
-    worksheet.getCell("C16").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    worksheet.mergeCells("E16:F16");
-    const pVal = worksheet.getCell("E16");
+    // Row 6: P.O. NUMBER
+    worksheet.mergeCells("C6:D6");
+    worksheet.getCell("C6").value = "P.O. NUMBER:";
+    worksheet.getCell("C6").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E6:F6");
+    const pVal = worksheet.getCell("E6");
     pVal.value = poNumber || "";
     pVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     pVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
   } else if (isChallan) {
-    // Row 12: CHALLAN NO
-    worksheet.getCell("C12").value = "CHALLAN NO.:";
-    worksheet.getCell("C12").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    const cVal = worksheet.getCell("D12");
+    // Row 2 (TOP): DATE
+    worksheet.getCell("C2").value = "DATE:";
+    worksheet.getCell("C2").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    const dVal = worksheet.getCell("D2");
+    dVal.value = dateVal || "";
+    dVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+    dVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
+
+    // Row 3: CHALLAN NO
+    worksheet.getCell("C3").value = "CHALLAN NO.:";
+    worksheet.getCell("C3").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    const cVal = worksheet.getCell("D3");
     cVal.value = challanNo || "";
     cVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     cVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-    // Row 13: DATE
-    worksheet.getCell("C13").value = "DATE:";
-    worksheet.getCell("C13").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    const dVal = worksheet.getCell("D13");
-    dVal.value = dateVal || "";
-    dVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
-    dVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
-
-    // Row 14: REQUISITION NO
-    worksheet.getCell("C14").value = "REQUISITION NO.:";
-    worksheet.getCell("C14").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    const rVal = worksheet.getCell("D14");
+    // Row 4: REQUISITION NO
+    worksheet.getCell("C4").value = "REQUISITION NO.:";
+    worksheet.getCell("C4").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    const rVal = worksheet.getCell("D4");
     rVal.value = requisitionNo || "";
     rVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     rVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-    // Rows 15, 16: blank dotted lines
-    for (let r = 15; r <= 16; r++) {
+    // Rows 5, 6: blank dotted lines
+    for (let r = 5; r <= 6; r++) {
       worksheet.getCell(`D${r}`).border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
     }
   } else {
-    // Quotation
-    worksheet.mergeCells("C12:D12");
-    worksheet.getCell("C12").value = "DATE:";
-    worksheet.getCell("C12").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    worksheet.mergeCells("E12:F12");
-    const dVal = worksheet.getCell("E12");
+    // Quotation - Row 2 (TOP): DATE
+    worksheet.mergeCells("C2:D2");
+    worksheet.getCell("C2").value = "DATE:";
+    worksheet.getCell("C2").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E2:F2");
+    const dVal = worksheet.getCell("E2");
     dVal.value = dateVal || "";
     dVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     dVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-    worksheet.mergeCells("C13:D13");
-    worksheet.getCell("C13").value = "REQUISITION NO.:";
-    worksheet.getCell("C13").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
-    worksheet.mergeCells("E13:F13");
-    const rVal = worksheet.getCell("E13");
+    // Row 3: REQUISITION NO
+    worksheet.mergeCells("C3:D3");
+    worksheet.getCell("C3").value = "REQUISITION NO.:";
+    worksheet.getCell("C3").font = { name: "Arial", size: 7.5, bold: true, color: { argb: "475569" } };
+    worksheet.mergeCells("E3:F3");
+    const rVal = worksheet.getCell("E3");
     rVal.value = requisitionNo || "";
     rVal.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
     rVal.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
-    for (let r = 14; r <= 16; r++) {
+    for (let r = 4; r <= 6; r++) {
       worksheet.mergeCells(`E${r}:F${r}`);
       worksheet.getCell(`E${r}`).border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
     }
   }
 
-  // Right Box outer borders
+  // Right Box outer borders (Rows 2 to 6)
   const rStartCol = 3;
-  for (let r = 12; r <= 16; r++) {
+  for (let r = 2; r <= 6; r++) {
     for (let c = rStartCol; c <= totalCols; c++) {
       const cell = worksheet.getCell(r, c);
       const cellBorders: any = { ...cell.border };
-      if (r === 12) cellBorders.top = { style: "thin", color: { argb: "000000" } };
-      if (r === 16) cellBorders.bottom = { style: "thin", color: { argb: "000000" } };
+      if (r === 2) cellBorders.top = { style: "thin", color: { argb: "000000" } };
+      if (r === 6) cellBorders.bottom = { style: "thin", color: { argb: "000000" } };
       if (c === rStartCol) cellBorders.left = { style: "thin", color: { argb: "000000" } };
       if (c === totalCols) cellBorders.right = { style: "thin", color: { argb: "000000" } };
       cell.border = cellBorders;
     }
   }
 
-  // 4. Main Table Header (Row 17)
-  const headerRow = worksheet.getRow(17);
+  // 3. Main Table Header (Row 7)
+  const headerRow = worksheet.getRow(7);
   headerRow.height = 18;
 
   const colHeaders = isChallan
@@ -441,8 +438,8 @@ const buildDocumentWorksheet = (
     };
   });
 
-  // 5. Table rows filling - Uses space strictly as per text only
-  let currentRowNum = 18;
+  // 4. Table rows filling - Uses space strictly as per text only
+  let currentRowNum = 8;
   const numItemsOnThisPage = pageRows.length;
   // Display only the actual items on this page (or 1 minimal row if totally empty)
   const displayRowCount = Math.max(numItemsOnThisPage, 1);
@@ -542,15 +539,15 @@ const buildDocumentWorksheet = (
 
   mergedRegions.forEach((region) => {
     if (region.startRow >= pageStartRowIdx && region.endRow <= pageEndRowIdx) {
-      const excelStartRow = (region.startRow - pageStartRowIdx) + 18;
-      const excelEndRow = (region.endRow - pageStartRowIdx) + 18;
+      const excelStartRow = (region.startRow - pageStartRowIdx) + 8;
+      const excelEndRow = (region.endRow - pageStartRowIdx) + 8;
       const excelStartCol = region.startCol + 2;
       const excelEndCol = region.endCol + 2;
 
       if (
-        excelStartRow >= 18 &&
+        excelStartRow >= 8 &&
         excelStartCol >= 1 &&
-        excelEndRow < 18 + displayRowCount &&
+        excelEndRow < 8 + displayRowCount &&
         excelEndCol <= totalCols
       ) {
         try {
@@ -562,7 +559,7 @@ const buildDocumentWorksheet = (
     }
   });
 
-  // 6. Totals & Words Block (Rendered strictly on the LAST page)
+  // 5. Totals & Words Block (Rendered strictly on the LAST page)
   if (!isChallan && isLastPage) {
     const totalRow = currentRowNum;
     const numTotalRows = isInvoice ? 4 : 1;
@@ -604,7 +601,7 @@ const buildDocumentWorksheet = (
       }
     }
 
-    const sumRange = `F18:F${totalRow - 1}`;
+    const sumRange = `F8:F${totalRow - 1}`;
 
     if (isInvoice) {
       // Row 1: SUBTOTAL
@@ -697,32 +694,32 @@ const buildDocumentWorksheet = (
     currentRowNum = totalRow + numTotalRows;
   }
 
-  // 9. Signatures Area - Compact & Centered
-  worksheet.getRow(currentRowNum).height = 6;
+  // 6. Signatures Area - Spacious room & Enlarged Stamp
+  worksheet.getRow(currentRowNum).height = 10;
   currentRowNum++;
 
   // "For Comilla Traders" row
   const authHeaderRow = currentRowNum;
   if (!isChallan) {
-    worksheet.getRow(authHeaderRow).height = 13;
+    worksheet.getRow(authHeaderRow).height = 15;
     worksheet.mergeCells(`E${authHeaderRow}:F${authHeaderRow}`);
     const authTitle = worksheet.getCell(`E${authHeaderRow}`);
     authTitle.value = "For Comilla Traders";
-    authTitle.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+    authTitle.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "000000" } };
     authTitle.alignment = { vertical: "middle", horizontal: "center" };
     currentRowNum++;
   }
 
-  // Spacer between header & signature line
-  worksheet.getRow(currentRowNum).height = 15;
+  // Generous room for signatures and enlarged stamp
+  worksheet.getRow(currentRowNum).height = 42;
   const sigRow = currentRowNum + 1;
-  worksheet.getRow(sigRow).height = 14;
+  worksheet.getRow(sigRow).height = 18;
 
   // Receiver's Signature
   worksheet.mergeCells(`A${sigRow}:B${sigRow}`);
   const recSig = worksheet.getCell(`A${sigRow}`);
   recSig.value = "Receiver's Signature";
-  recSig.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+  recSig.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "000000" } };
   recSig.alignment = { vertical: "middle", horizontal: "center" };
   recSig.border = { top: { style: "thin", color: { argb: "000000" } } };
 
@@ -732,15 +729,16 @@ const buildDocumentWorksheet = (
   worksheet.mergeCells(`${authColStart}${sigRow}:${authColEnd}${sigRow}`);
   const authSig = worksheet.getCell(`${authColStart}${sigRow}`);
   authSig.value = "Authorized Signature";
-  authSig.font = { name: "Arial", size: 8, bold: true, color: { argb: "000000" } };
+  authSig.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "000000" } };
   authSig.alignment = { vertical: "middle", horizontal: "center" };
   authSig.border = { top: { style: "thin", color: { argb: "000000" } } };
 
-  // Centered Official Stamp positioned directly between "For Comilla Traders" and "Authorized Signature"
-  if (!isChallan && stampId !== null) {
+  // Centered Official Stamp (Enlarged and positioned over Authorized Signature)
+  if (stampId !== null) {
+    const stampCol = isChallan ? 2.65 : 4.64;
     worksheet.addImage(stampId, {
-      tl: { col: 4.72, row: sigRow - 2.05 },
-      ext: { width: 66, height: 66 },
+      tl: { col: stampCol, row: sigRow - 2.25 },
+      ext: { width: 88, height: 88 },
     });
   }
 

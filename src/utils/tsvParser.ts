@@ -7,6 +7,8 @@
  * - Intelligent header detection & column alignment
  */
 
+import { stripHtml } from "./textFormatter";
+
 export interface ParsedClipboardResult {
   grid: string[][];
   hasHeader: boolean;
@@ -20,7 +22,8 @@ export interface ParsedClipboardResult {
  */
 export function cleanCellText(str: string): string {
   if (!str) return "";
-  return str
+  const plain = str.includes("<") && str.includes(">") ? stripHtml(str) : str;
+  return plain
     .replace(/[\r\n]+/g, " ")
     .replace(/\u00A0/g, " ")
     .replace(/\s{2,}/g, " ")

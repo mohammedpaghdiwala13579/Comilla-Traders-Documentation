@@ -172,7 +172,10 @@ export default function ExcelRibbonToolbar({
   const handleIncreaseFontSize = () => {
     const current = currentFormat.fontSize || 11;
     const next = FONT_SIZES.find((s) => s > current) || current + 2;
-    onApplyFormat({ fontSize: next });
+    const applied = applyInlineFormatting("fontSize", next);
+    if (!applied) {
+      onApplyFormat({ fontSize: next });
+    }
     setSizeInputVal(String(next));
   };
 
@@ -180,14 +183,20 @@ export default function ExcelRibbonToolbar({
     const current = currentFormat.fontSize || 11;
     const reversed = [...FONT_SIZES].reverse();
     const prev = reversed.find((s) => s < current) || Math.max(6, current - 2);
-    onApplyFormat({ fontSize: prev });
+    const applied = applyInlineFormatting("fontSize", prev);
+    if (!applied) {
+      onApplyFormat({ fontSize: prev });
+    }
     setSizeInputVal(String(prev));
   };
 
   const handleSizeInputSubmit = () => {
     const val = parseFloat(sizeInputVal);
     if (!isNaN(val) && val > 0 && val <= 144) {
-      onApplyFormat({ fontSize: val });
+      const applied = applyInlineFormatting("fontSize", val);
+      if (!applied) {
+        onApplyFormat({ fontSize: val });
+      }
     } else {
       setSizeInputVal(String(currentFormat.fontSize || 11));
     }
@@ -206,9 +215,14 @@ export default function ExcelRibbonToolbar({
   // Highlight / Fill Color handler
   const handleHighlightColorSelect = (color: string) => {
     setActiveHighlightColor(color);
-    const applied = applyInlineFormatting("hiliteColor", color);
+    const applied = applyInlineFormatting("highlight", color);
     if (!applied) {
+      // Only apply to cell if no editable text field is active
       onApplyFormat({ bgColor: color === "transparent" ? "" : color });
+    }
+    if (color === "transparent") {
+      // If user chose No Fill, ensure any cell-level background color is also cleared
+      onApplyFormat({ bgColor: "" });
     }
     setOpenDropdown(null);
   };
@@ -216,7 +230,7 @@ export default function ExcelRibbonToolbar({
   // Font Color handler
   const handleFontColorSelect = (color: string) => {
     setActiveFontColor(color);
-    const applied = applyInlineFormatting("foreColor", color);
+    const applied = applyInlineFormatting("fontColor", color);
     if (!applied) {
       onApplyFormat({ color: color });
     }
@@ -239,7 +253,7 @@ export default function ExcelRibbonToolbar({
   };
 
   const handleToggleUnderline = (val?: "none" | "single" | "double") => {
-    const applied = applyInlineFormatting("underline");
+    const applied = applyInlineFormatting("underline", val);
     if (!applied) {
       onApplyFormat({
         underline: val !== undefined ? val : (currentFormat.underline === "single" ? "none" : "single"),
@@ -447,7 +461,10 @@ export default function ExcelRibbonToolbar({
               </button>
 
               {openDropdown === "fontFamily" && (
-                <div className="absolute left-0 top-[26px] w-[180px] max-h-[260px] overflow-y-auto bg-[#2b2b2b] border border-[#4a4a4a] shadow-2xl rounded-xs py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="absolute left-0 top-[26px] w-[180px] max-h-[260px] overflow-y-auto bg-[#2b2b2b] border border-[#4a4a4a] shadow-2xl rounded-xs py-1 z-50 animate-in fade-in zoom-in-95 duration-100"
+                >
                   <div className="px-2 py-0.5 text-[9px] font-bold text-[#888888] uppercase tracking-wider">
                     Available Fonts
                   </div>
@@ -455,8 +472,12 @@ export default function ExcelRibbonToolbar({
                     <button
                       key={font.name}
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
-                        onApplyFormat({ fontFamily: font.name });
+                        const applied = applyInlineFormatting("fontFamily", font.name);
+                        if (!applied) {
+                          onApplyFormat({ fontFamily: font.name });
+                        }
                         setOpenDropdown(null);
                       }}
                       className={`w-full px-2.5 py-1 text-left text-xs flex items-center justify-between hover:bg-[#3d3d3d] transition-colors cursor-pointer ${
@@ -497,6 +518,7 @@ export default function ExcelRibbonToolbar({
                 <button
                   type="button"
                   id="btn-font-size-dropdown"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => toggleDropdown("fontSize")}
                   className="h-full px-1 hover:bg-[#4a4a4a] text-[#aaaaaa] flex items-center justify-center cursor-pointer"
                   title="Select Font Size"
@@ -506,13 +528,20 @@ export default function ExcelRibbonToolbar({
               </div>
 
               {openDropdown === "fontSize" && (
-                <div className="absolute left-0 top-[26px] w-[54px] max-h-[220px] overflow-y-auto bg-[#2b2b2b] border border-[#4a4a4a] shadow-2xl rounded-xs py-1 z-50 animate-in fade-in zoom-in-95 duration-100 text-center">
+                <div
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="absolute left-0 top-[26px] w-[54px] max-h-[220px] overflow-y-auto bg-[#2b2b2b] border border-[#4a4a4a] shadow-2xl rounded-xs py-1 z-50 animate-in fade-in zoom-in-95 duration-100 text-center"
+                >
                   {FONT_SIZES.map((size) => (
                     <button
                       key={size}
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
-                        onApplyFormat({ fontSize: size });
+                        const applied = applyInlineFormatting("fontSize", size);
+                        if (!applied) {
+                          onApplyFormat({ fontSize: size });
+                        }
                         setSizeInputVal(String(size));
                         setOpenDropdown(null);
                       }}
@@ -738,16 +767,20 @@ export default function ExcelRibbonToolbar({
               </button>
 
               {openDropdown === "highlightColor" && (
-                <div className="absolute left-0 top-[26px] w-[210px] bg-[#2b2b2b] border border-[#4a4a4a] shadow-2xl rounded-xs p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="absolute left-0 top-[26px] w-[210px] bg-[#2b2b2b] border border-[#4a4a4a] shadow-2xl rounded-xs p-2 z-50 animate-in fade-in zoom-in-95 duration-100"
+                >
                   <div className="flex items-center justify-between mb-1 pb-1 border-b border-[#3e3e3e]">
                     <span className="text-[10px] font-bold text-[#aaaaaa] uppercase tracking-wider">Highlight Colors</span>
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleHighlightColorSelect("transparent")}
-                      className="text-[10px] text-amber-400 hover:underline cursor-pointer"
+                      className="text-[10px] text-amber-400 hover:underline cursor-pointer font-semibold"
+                      title="Reset highlight for selected word or text"
                     >
-                      No Fill
+                      No Fill (Reset)
                     </button>
                   </div>
                   <div className="grid grid-cols-10 gap-1 mb-2">
@@ -832,16 +865,20 @@ export default function ExcelRibbonToolbar({
               </button>
 
               {openDropdown === "fontColor" && (
-                <div className="absolute left-0 top-[26px] w-[210px] bg-[#2b2b2b] border border-[#4a4a4a] shadow-2xl rounded-xs p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="absolute left-0 top-[26px] w-[210px] bg-[#2b2b2b] border border-[#4a4a4a] shadow-2xl rounded-xs p-2 z-50 animate-in fade-in zoom-in-95 duration-100"
+                >
                   <div className="flex items-center justify-between mb-1 pb-1 border-b border-[#3e3e3e]">
                     <span className="text-[10px] font-bold text-[#aaaaaa] uppercase tracking-wider">Theme Colors</span>
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleFontColorSelect("#000000")}
-                      className="text-[10px] text-amber-400 hover:underline cursor-pointer"
+                      className="text-[10px] text-amber-400 hover:underline cursor-pointer font-semibold"
+                      title="Reset font color to default"
                     >
-                      Automatic
+                      Automatic (Reset)
                     </button>
                   </div>
                   <div className="grid grid-cols-10 gap-1 mb-2">
@@ -1034,9 +1071,13 @@ export default function ExcelRibbonToolbar({
               <button
                 type="button"
                 id="btn-clear-format"
-                onClick={onClearFormatting}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  applyInlineFormatting("clearFormat");
+                  onClearFormatting();
+                }}
                 className="h-[24px] px-2 hover:bg-[#3e3e3e] text-[#aaaaaa] hover:text-white rounded-xs flex items-center gap-1 transition-colors cursor-pointer text-[10px]"
-                title="Clear Formatting"
+                title="Clear Formatting (Reset text & cell styles)"
               >
                 <span>Clear</span>
               </button>

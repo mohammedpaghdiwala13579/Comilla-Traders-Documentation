@@ -1118,13 +1118,24 @@ export default function QuotationBuilder() {
   const handleCellMouseDown = (e: React.MouseEvent, rowIndex: number, colIndex: number) => {
     if (e.button !== 0) return;
 
-    const isActive = selectedCell?.rowIndex === rowIndex && selectedCell?.colIndex === colIndex;
+    // Check if user clicked an editable element or within one
+    const target = e.target as HTMLElement;
+    const isInsideEditable = target && (target.isContentEditable || !!target.closest("[contenteditable='true']") || target.tagName === "INPUT");
 
-    setIsSelecting(true);
-    setSelectionStart({ rowIndex, colIndex });
-    setSelectionEnd({ rowIndex, colIndex });
     setSelectedCell({ rowIndex, colIndex });
     setSelectedRowIndex(rowIndex);
+    setSelectionStart({ rowIndex, colIndex });
+    setSelectionEnd({ rowIndex, colIndex });
+
+    if (isInsideEditable) {
+      // User is selecting text or placing cursor in an editable cell!
+      // Do NOT preventDefault, do NOT blur, and do not start multi-cell drag
+      setIsSelecting(false);
+      return;
+    }
+
+    const isActive = selectedCell?.rowIndex === rowIndex && selectedCell?.colIndex === colIndex;
+    setIsSelecting(true);
 
     if (!isActive) {
       if (document.activeElement instanceof HTMLElement) {
@@ -1142,6 +1153,14 @@ export default function QuotationBuilder() {
 
   const handleCellMouseUp = (e: React.MouseEvent, rowIndex: number, colIndex: number) => {
     setIsSelecting(false);
+
+    const target = e.target as HTMLElement;
+    const isInsideEditable = target && (target.isContentEditable || !!target.closest("[contenteditable='true']") || target.tagName === "INPUT");
+    if (isInsideEditable) {
+      // Preserve active text selection in editable cells
+      return;
+    }
+
     const isSingleCell = selectionStart && selectionStart.rowIndex === rowIndex && selectionStart.colIndex === colIndex;
     if (isSingleCell && !hasRangeSelection()) {
       if (colIndex >= 0 && colIndex <= 3) {

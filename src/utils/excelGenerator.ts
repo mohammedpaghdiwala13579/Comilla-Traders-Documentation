@@ -1,8 +1,442 @@
 import ExcelJS from "exceljs";
-import { QuotationRow, MergedRegion, CellFormatMap, CellFormat } from "../types";
+import { QuotationRow, MergedRegion, CellFormatMap, CellFormat, CellBorders } from "../types";
 import { numberToWords } from "./numberToWords";
 import { cleanCellText } from "./tsvParser";
-import { parseNumericInput } from "./textFormatter";
+import { parseNumericInput, stripHtml } from "./textFormatter";
+
+/**
+ * Converts CSS color (hex, rgb, rgba, named colors) to 8-character ARGB for ExcelJS
+ */
+export function colorToArgb(color: string | null | undefined): string | null {
+  if (!color) return null;
+  const c = color.trim().toLowerCase();
+  if (c === "transparent" || c === "none" || c === "initial" || c === "inherit" || c === "") return null;
+
+  // Hex format #RGB, #RRGGBB, #RRGGBBAA
+  if (c.startsWith("#")) {
+    const hex = c.slice(1);
+    if (hex.length === 3) {
+      return (
+        "FF" +
+        hex[0] + hex[0] +
+        hex[1] + hex[1] +
+        hex[2] + hex[2]
+      ).toUpperCase();
+    }
+    if (hex.length === 6) {
+      return ("FF" + hex).toUpperCase();
+    }
+    if (hex.length === 8) {
+      return (hex.slice(6, 8) + hex.slice(0, 6)).toUpperCase();
+    }
+  }
+
+  // rgb(r, g, b) or rgba(r, g, b, a)
+  const rgbMatch = c.match(/^rgba?\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)(?:\s*,\s*([0-9.]+))?\s*\)$/);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
+    const a = rgbMatch[4] !== undefined ? parseFloat(rgbMatch[4]) : 1;
+    if (a <= 0) return null;
+    const aHex = Math.round(a * 255).toString(16).padStart(2, "0");
+    const rHex = Math.max(0, Math.min(255, r)).toString(16).padStart(2, "0");
+    const gHex = Math.max(0, Math.min(255, g)).toString(16).padStart(2, "0");
+    const bHex = Math.max(0, Math.min(255, b)).toString(16).padStart(2, "0");
+    return (aHex + rHex + gHex + bHex).toUpperCase();
+  }
+
+  const NAMED_COLORS: Record<string, string> = {
+    black: "FF000000",
+    white: "FFFFFFFF",
+    red: "FFFF0000",
+    green: "FF008000",
+    blue: "FF0000FF",
+    yellow: "FFFFFF00",
+    amber: "FFF59E0B",
+    gray: "FF808080",
+    grey: "FF808080",
+    slate: "FF64748B",
+    orange: "FFF97316",
+    purple: "FFA855F7",
+    teal: "FF14B8A6",
+    cyan: "FF06B6D4",
+  };
+  if (NAMED_COLORS[c]) {
+    return NAMED_COLORS[c];
+  }
+
+  if (/^[0-9a-f]{6}$/i.test(c)) {
+    return ("FF" + c).toUpperCase();
+  }
+  if (/^[0-9a-f]{8}$/i.test(c)) {
+    return c.toUpperCase();
+  }
+
+  return null;
+}
+
+export type ExcelBorderDef = Partial<ExcelJS.Border>;
+
+/**
+ * Parses CSS border string (e.g. "1px solid black", "3px double black", "none") into ExcelJS Border
+ */
+export function parseBorderSide(
+  borderStr?: string,
+  defaultStyle?: ExcelJS.BorderStyle
+): ExcelBorderDef | undefined {
+  if (borderStr === undefined) {
+    if (!defaultStyle) return undefined;
+    return { style: defaultStyle, color: { argb: "FF000000" } };
+  }
+  const s = borderStr.trim().toLowerCase();
+  if (s === "none" || s === "0" || s === "0px" || s === "hidden" || s === "") {
+    return undefined;
+  }
+
+  let style: ExcelJS.BorderStyle = "thin";
+  if (s.includes("double")) {
+    style = "double";
+  } else if (s.includes("3px") || s.includes("thick")) {
+    style = "thick";
+  } else if (s.includes("2px") || s.includes("medium")) {
+    style = "medium";
+  } else if (s.includes("dotted")) {
+    style = "dotted";
+  } else if (s.includes("dashed")) {
+    style = "dashed";
+  } else {
+    style = "thin";
+  }
+
+  let argb = "FF000000";
+  const hexMatch = s.match(/#([0-9a-f]{3,8})/i);
+  if (hexMatch) {
+    const parsed = colorToArgb(hexMatch[0]);
+    if (parsed) argb = parsed;
+  } else {
+    const rgbMatch = s.match(/rgba?\([^)]+\)/i);
+    if (rgbMatch) {
+      const parsed = colorToArgb(rgbMatch[0]);
+      if (parsed) argb = parsed;
+    }
+  }
+
+  return { style, color: { argb } };
+}
+
+/**
+ * Converts HTML into plain text while preserving intentional line breaks (<br>, </p>, </div>)
+ */
+export const htmlToPlainText = (html: string): string => {
+  if (!html) return "";
+  if (!html.includes("<") && !html.includes("&")) return html;
+  const replaced = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/&nbsp;/gi, " ");
+
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const doc = new DOMParser().parseFromString(replaced, "text/html");
+      return (doc.body.textContent || "").replace(/\u00A0/g, " ");
+    } catch (e) {}
+  }
+  return replaced.replace(/<[^>]*>/g, "").replace(/\u00A0/g, " ");
+};
+
+interface TextRunStyle {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean | "single" | "double";
+  strike?: boolean;
+  color?: string; // ARGB
+  bgColor?: string; // ARGB
+  size?: number; // pt
+  fontFamily?: string;
+}
+
+export interface ParsedHtmlResult {
+  richText: ExcelJS.RichText[];
+  plainText: string;
+  hasFormatting: boolean;
+  highlightColor?: string; // ARGB
+}
+
+/**
+ * Parses an HTML string (from contenteditable RichTextCell) into ExcelJS richText runs
+ * preserving specific word highlight, color, size, bold, italic, underline, and fonts.
+ */
+export function parseHtmlToExcelRuns(
+  htmlOrText: string,
+  baseFont: Partial<ExcelJS.Font> = {}
+): ParsedHtmlResult {
+  if (!htmlOrText) {
+    return { richText: [], plainText: "", hasFormatting: false };
+  }
+
+  // If no HTML tags at all, return standard plain text
+  if (!htmlOrText.includes("<")) {
+    return {
+      richText: [
+        {
+          text: htmlOrText,
+          font: { ...baseFont },
+        },
+      ],
+      plainText: htmlOrText,
+      hasFormatting: false,
+    };
+  }
+
+  if (typeof DOMParser === "undefined") {
+    const clean = stripHtml(htmlOrText);
+    return {
+      richText: [{ text: clean, font: { ...baseFont } }],
+      plainText: clean,
+      hasFormatting: false,
+    };
+  }
+
+  const normalizedHtml = htmlOrText
+    .replace(/<br\s*\/?>/gi, "<br>")
+    .replace(/&nbsp;/gi, " ");
+
+  const doc = new DOMParser().parseFromString(`<div>${normalizedHtml}</div>`, "text/html");
+  const root = doc.body.firstElementChild || doc.body;
+
+  const rawRuns: { text: string; style: TextRunStyle }[] = [];
+  let foundHighlight: string | undefined = undefined;
+  let hasSpecialFormatting = false;
+
+  const traverse = (node: Node, currentStyle: TextRunStyle) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent || "";
+      if (text.length > 0) {
+        rawRuns.push({ text, style: { ...currentStyle } });
+      }
+      return;
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tag = el.tagName.toUpperCase();
+
+      if (tag === "BR") {
+        rawRuns.push({ text: "\n", style: { ...currentStyle } });
+        return;
+      }
+
+      const nextStyle: TextRunStyle = { ...currentStyle };
+
+      // HTML Tags
+      if (tag === "B" || tag === "STRONG") {
+        nextStyle.bold = true;
+        hasSpecialFormatting = true;
+      }
+      if (tag === "I" || tag === "EM") {
+        nextStyle.italic = true;
+        hasSpecialFormatting = true;
+      }
+      if (tag === "U") {
+        nextStyle.underline = true;
+        hasSpecialFormatting = true;
+      }
+      if (tag === "S" || tag === "STRIKE" || tag === "DEL") {
+        nextStyle.strike = true;
+        hasSpecialFormatting = true;
+      }
+      if (tag === "MARK") {
+        const bg = colorToArgb(el.style.backgroundColor || "#fef08a");
+        if (bg) {
+          nextStyle.bgColor = bg;
+          foundHighlight = bg;
+          hasSpecialFormatting = true;
+        }
+      }
+      if (tag === "FONT") {
+        const fontColor = el.getAttribute("color");
+        if (fontColor) {
+          const argb = colorToArgb(fontColor);
+          if (argb) {
+            nextStyle.color = argb;
+            hasSpecialFormatting = true;
+          }
+        }
+        const face = el.getAttribute("face");
+        if (face) {
+          nextStyle.fontFamily = face;
+          hasSpecialFormatting = true;
+        }
+        const sizeAttr = el.getAttribute("size");
+        if (sizeAttr) {
+          const num = parseInt(sizeAttr, 10);
+          if (!isNaN(num)) {
+            const sizeMap = [8, 9, 10, 11, 14, 18, 24, 36];
+            nextStyle.size = sizeMap[Math.min(num, sizeMap.length - 1)];
+            hasSpecialFormatting = true;
+          }
+        }
+      }
+
+      // Inline Styles
+      if (el.style) {
+        if (el.style.fontWeight) {
+          const fw = el.style.fontWeight.toLowerCase();
+          if (fw === "bold" || fw === "700" || fw === "800" || fw === "900" || fw === "bolder") {
+            nextStyle.bold = true;
+            hasSpecialFormatting = true;
+          } else if (fw === "normal" || fw === "400") {
+            nextStyle.bold = false;
+          }
+        }
+
+        if (el.style.fontStyle) {
+          const fs = el.style.fontStyle.toLowerCase();
+          if (fs === "italic" || fs === "oblique") {
+            nextStyle.italic = true;
+            hasSpecialFormatting = true;
+          } else if (fs === "normal") {
+            nextStyle.italic = false;
+          }
+        }
+
+        if (el.style.textDecoration || el.style.textDecorationLine) {
+          const td = (el.style.textDecoration || el.style.textDecorationLine).toLowerCase();
+          if (td.includes("underline")) {
+            nextStyle.underline = td.includes("double") || el.style.textDecorationStyle === "double" ? "double" : true;
+            hasSpecialFormatting = true;
+          } else if (td.includes("line-through")) {
+            nextStyle.strike = true;
+            hasSpecialFormatting = true;
+          } else if (td === "none") {
+            nextStyle.underline = false;
+            nextStyle.strike = false;
+          }
+        }
+
+        if (el.style.color) {
+          const argb = colorToArgb(el.style.color);
+          if (argb) {
+            nextStyle.color = argb;
+            hasSpecialFormatting = true;
+          }
+        }
+
+        if (el.style.backgroundColor || el.style.background) {
+          const bg = colorToArgb(el.style.backgroundColor || el.style.background);
+          if (bg) {
+            nextStyle.bgColor = bg;
+            foundHighlight = bg;
+            hasSpecialFormatting = true;
+          }
+        }
+
+        if (el.style.fontSize) {
+          const fsStr = el.style.fontSize.trim().toLowerCase();
+          if (fsStr.endsWith("pt")) {
+            nextStyle.size = parseFloat(fsStr);
+            hasSpecialFormatting = true;
+          } else if (fsStr.endsWith("px")) {
+            nextStyle.size = Math.round(parseFloat(fsStr) * 0.75);
+            hasSpecialFormatting = true;
+          } else {
+            const num = parseFloat(fsStr);
+            if (!isNaN(num) && num > 0) {
+              nextStyle.size = num;
+              hasSpecialFormatting = true;
+            }
+          }
+        }
+
+        if (el.style.fontFamily) {
+          const cleaned = el.style.fontFamily.replace(/['"]/g, "").split(",")[0].trim();
+          if (cleaned) {
+            nextStyle.fontFamily = cleaned;
+            hasSpecialFormatting = true;
+          }
+        }
+      }
+
+      const isBlock = tag === "DIV" || tag === "P" || tag === "TR";
+      if (isBlock && rawRuns.length > 0 && !rawRuns[rawRuns.length - 1].text.endsWith("\n")) {
+        rawRuns.push({ text: "\n", style: { ...currentStyle } });
+      }
+
+      for (let i = 0; i < node.childNodes.length; i++) {
+        traverse(node.childNodes[i], nextStyle);
+      }
+
+      if (isBlock && rawRuns.length > 0 && !rawRuns[rawRuns.length - 1].text.endsWith("\n")) {
+        rawRuns.push({ text: "\n", style: { ...currentStyle } });
+      }
+    }
+  };
+
+  const baseArgb = baseFont.color?.argb ? String(baseFont.color.argb) : undefined;
+  traverse(root, {
+    bold: baseFont.bold,
+    italic: baseFont.italic,
+    underline: baseFont.underline === "double" ? "double" : !!baseFont.underline,
+    color: baseArgb,
+    size: baseFont.size,
+    fontFamily: baseFont.name,
+  });
+
+  // Consolidate adjacent runs with identical styling
+  const consolidatedRuns: { text: string; style: TextRunStyle }[] = [];
+  for (const run of rawRuns) {
+    if (!run.text) continue;
+    if (consolidatedRuns.length === 0) {
+      consolidatedRuns.push({ ...run });
+    } else {
+      const prev = consolidatedRuns[consolidatedRuns.length - 1];
+      const sameStyle =
+        prev.style.bold === run.style.bold &&
+        prev.style.italic === run.style.italic &&
+        prev.style.underline === run.style.underline &&
+        prev.style.strike === run.style.strike &&
+        prev.style.color === run.style.color &&
+        prev.style.bgColor === run.style.bgColor &&
+        prev.style.size === run.style.size &&
+        prev.style.fontFamily === run.style.fontFamily;
+      if (sameStyle) {
+        prev.text += run.text;
+      } else {
+        consolidatedRuns.push({ ...run });
+      }
+    }
+  }
+
+  // Convert to ExcelJS.RichText
+  const richText: ExcelJS.RichText[] = consolidatedRuns.map((r) => {
+    const font: Partial<ExcelJS.Font> = {
+      name: r.style.fontFamily || baseFont.name || "Arial",
+      size: r.style.size !== undefined ? r.style.size : (baseFont.size || 8),
+      bold: r.style.bold !== undefined ? r.style.bold : baseFont.bold,
+      italic: r.style.italic !== undefined ? r.style.italic : baseFont.italic,
+      underline: r.style.underline !== undefined ? (r.style.underline === "double" ? "double" : !!r.style.underline) : baseFont.underline,
+      strike: r.style.strike !== undefined ? r.style.strike : baseFont.strike,
+      color: r.style.color ? { argb: r.style.color } : (baseFont.color || { argb: "FF000000" }),
+    };
+
+    return {
+      text: r.text,
+      font,
+    };
+  });
+
+  const plainText = consolidatedRuns.map((r) => r.text).join("");
+
+  return {
+    richText,
+    plainText,
+    hasFormatting: hasSpecialFormatting,
+    highlightColor: foundHighlight,
+  };
+}
 
 const getBase64Image = async (url: string): Promise<{ base64: string; ext: string } | null> => {
   try {
@@ -33,9 +467,11 @@ const getBase64Image = async (url: string): Promise<{ base64: string; ext: strin
  * Calculates visual text lines in an item's description based on column width & line breaks.
  */
 export const calculateItemVisualLines = (desc: string, isChallan: boolean): number => {
-  if (!desc || !desc.trim()) return 1;
+  if (!desc) return 1;
+  const plain = htmlToPlainText(desc).trim();
+  if (!plain) return 1;
   const maxCharsPerLine = isChallan ? 54 : 46;
-  const parts = desc.split(/\r?\n/);
+  const parts = plain.split(/\r?\n/);
   let lines = 0;
   for (const part of parts) {
     const trimmed = part.trim();
@@ -265,8 +701,25 @@ const buildDocumentWorksheet = (
 
   worksheet.mergeCells("A13:B13");
   const messersCell = worksheet.getCell("A13");
-  messersCell.value = cleanCellText(messers || "");
-  messersCell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "000000" } };
+  const messersParsed = parseHtmlToExcelRuns(messers || "", {
+    name: "Arial",
+    size: 8.5,
+    bold: true,
+    color: { argb: "FF000000" },
+  });
+  if (messersParsed.hasFormatting && messersParsed.richText.length > 0) {
+    messersCell.value = { richText: messersParsed.richText };
+  } else {
+    messersCell.value = messersParsed.plainText;
+    messersCell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FF000000" } };
+  }
+  if (messersParsed.highlightColor) {
+    messersCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: messersParsed.highlightColor },
+    };
+  }
   messersCell.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
   worksheet.mergeCells("A14:B14");
@@ -275,8 +728,24 @@ const buildDocumentWorksheet = (
 
   worksheet.mergeCells("A15:B16");
   const addrCell = worksheet.getCell("A15");
-  addrCell.value = cleanCellText(address || "");
-  addrCell.font = { name: "Arial", size: 8, color: { argb: "000000" } };
+  const addrParsed = parseHtmlToExcelRuns(address || "", {
+    name: "Arial",
+    size: 8,
+    color: { argb: "FF000000" },
+  });
+  if (addrParsed.hasFormatting && addrParsed.richText.length > 0) {
+    addrCell.value = { richText: addrParsed.richText };
+  } else {
+    addrCell.value = addrParsed.plainText;
+    addrCell.font = { name: "Arial", size: 8, color: { argb: "FF000000" } };
+  }
+  if (addrParsed.highlightColor) {
+    addrCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: addrParsed.highlightColor },
+    };
+  }
   addrCell.alignment = { vertical: "top", wrapText: true };
   addrCell.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
@@ -446,6 +915,113 @@ const buildDocumentWorksheet = (
     };
   });
 
+  // Helper to apply custom CellFormat, inline RichText, highlights, colors, adjustments & borders to ExcelJS cell
+  const applyCellFormatToExcel = (
+    cell: ExcelJS.Cell,
+    rIndex: number,
+    cIndex: number,
+    defaultAlign: "left" | "center" | "right",
+    rawValue?: string,
+    options?: {
+      isLastRow?: boolean;
+      isNumeric?: boolean;
+      numericVal?: number;
+      formula?: string;
+    }
+  ) => {
+    const key = `${rIndex}_${cIndex}`;
+    const fmt = cellFormats ? cellFormats[key] : undefined;
+
+    // 1. Build Base Font
+    const baseFont: Partial<ExcelJS.Font> = {
+      name: fmt?.fontFamily || cell.font?.name || "Arial",
+      size: fmt?.fontSize !== undefined ? fmt.fontSize : (cell.font?.size || 8),
+      bold: fmt?.bold !== undefined ? fmt.bold : cell.font?.bold,
+      italic: fmt?.italic !== undefined ? fmt.italic : cell.font?.italic,
+      underline: fmt?.underline ? (fmt.underline === "double" ? "double" : fmt.underline === "single" ? true : false) : cell.font?.underline,
+      color: fmt?.color ? { argb: colorToArgb(fmt.color) || "FF000000" } : (cell.font?.color || { argb: "FF000000" }),
+    };
+
+    // 2. Parse Value & Inline RichText (word-level formatting)
+    let inlineHighlight: string | undefined = undefined;
+    if (options?.formula) {
+      cell.value = { formula: options.formula } as any;
+      cell.font = baseFont;
+    } else if (rawValue && rawValue.includes("<")) {
+      const parsed = parseHtmlToExcelRuns(rawValue, baseFont);
+      if (parsed.hasFormatting && parsed.richText.length > 0) {
+        cell.value = { richText: parsed.richText };
+        inlineHighlight = parsed.highlightColor;
+      } else {
+        if (options?.isNumeric && options.numericVal !== undefined && !isNaN(options.numericVal)) {
+          cell.value = options.numericVal;
+        } else {
+          cell.value = parsed.plainText;
+        }
+        cell.font = baseFont;
+      }
+    } else if (options?.isNumeric && options.numericVal !== undefined && !isNaN(options.numericVal)) {
+      cell.value = options.numericVal;
+      cell.font = baseFont;
+    } else if (rawValue !== undefined) {
+      cell.value = rawValue;
+      cell.font = baseFont;
+    } else {
+      cell.font = baseFont;
+    }
+
+    // 3. Highlight / Background Fill
+    const fillArgb = fmt?.bgColor && fmt.bgColor !== "transparent"
+      ? colorToArgb(fmt.bgColor)
+      : inlineHighlight;
+
+    if (fillArgb) {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: fillArgb },
+      };
+    } else if (fmt?.bgColor === "transparent") {
+      delete (cell as any).fill;
+    }
+
+    // 4. Adjustments (Alignment, Indent, Orientation, WrapText)
+    const alignObj: Partial<ExcelJS.Alignment> = {
+      vertical: fmt?.valign === "top" ? "top" : fmt?.valign === "middle" ? "middle" : fmt?.valign === "bottom" ? "bottom" : (cell.alignment?.vertical || "middle"),
+      horizontal: fmt?.align || defaultAlign,
+      wrapText: true,
+    };
+
+    if (fmt?.indent) {
+      alignObj.indent = fmt.indent;
+    }
+
+    if (fmt?.orientation) {
+      if (fmt.orientation === "angle-up") alignObj.textRotation = 45;
+      else if (fmt.orientation === "angle-down") alignObj.textRotation = -45;
+      else if (fmt.orientation === "vertical") alignObj.textRotation = 255;
+      else if (fmt.orientation === "rotate-up") alignObj.textRotation = 90;
+      else if (fmt.orientation === "rotate-down") alignObj.textRotation = -90;
+    }
+    cell.alignment = alignObj;
+
+    // 5. Borders (Respects custom toolbar borders, presets, and standard table grid)
+    const isLastRow = !!options?.isLastRow;
+    const defaultBottomStyle: ExcelJS.BorderStyle = isLastRow ? "medium" : "thin";
+
+    const topBorder = parseBorderSide(fmt?.borders?.top, "thin");
+    const bottomBorder = parseBorderSide(fmt?.borders?.bottom, defaultBottomStyle);
+    const leftBorder = parseBorderSide(fmt?.borders?.left, "thin");
+    const rightBorder = parseBorderSide(fmt?.borders?.right, "thin");
+
+    cell.border = {
+      top: topBorder,
+      bottom: bottomBorder,
+      left: leftBorder,
+      right: rightBorder,
+    };
+  };
+
   // 5. Table rows filling - Uses space strictly as per text only
   let currentRowNum = 18;
   const numItemsOnThisPage = pageRows.length;
@@ -457,137 +1033,88 @@ const buildDocumentWorksheet = (
     const rowData = pageRows[idx];
 
     const slVal = startSlIndex + idx;
-    const descVal = rowData ? cleanCellText(rowData.desc) : "";
-    const cleanQtyStr = rowData && rowData.qty ? cleanCellText(rowData.qty) : "";
+    const rawDesc = rowData ? rowData.desc : "";
+    const rawQty = rowData ? rowData.qty : "";
+    const rawUnit = rowData ? rowData.unit : "";
+    const rawPrice = rowData ? rowData.price : "";
+
+    const cleanQtyStr = rawQty ? htmlToPlainText(rawQty).trim() : "";
     const qtyVal = cleanQtyStr ? parseNumericInput(cleanQtyStr) : "";
-    const unitVal = rowData ? cleanCellText(rowData.unit) : "";
+    const isNumericQty = typeof qtyVal === "number" && !isNaN(qtyVal) && qtyVal !== 0;
+
+    const cleanPriceStr = rawPrice ? htmlToPlainText(rawPrice).trim() : "";
+    const priceVal = cleanPriceStr ? parseNumericInput(cleanPriceStr) : "";
+    const isNumericPrice = typeof priceVal === "number" && !isNaN(priceVal) && priceVal !== 0;
 
     // Dynamic compact row height based strictly on actual visual lines
-    const visualLines = calculateItemVisualLines(descVal, isChallan);
-    r.height = getItemRowHeight(visualLines);
+    const plainDesc = htmlToPlainText(rawDesc);
+    const visualLines = calculateItemVisualLines(plainDesc, isChallan);
+    let rowH = getItemRowHeight(visualLines);
 
-    // Helper to apply custom CellFormat to ExcelJS cell
-    const applyCellFormatToExcel = (cell: ExcelJS.Cell, rIndex: number, cIndex: number, defaultAlign: "left" | "center" | "right") => {
-      const key = `${rIndex}_${cIndex}`;
-      const fmt = cellFormats ? cellFormats[key] : undefined;
-      if (!fmt) return;
+    // If description or any cell has large custom font size, adjust row height accordingly
+    const descFmt = cellFormats ? cellFormats[`${startSlIndex - 1 + idx}_0`] : undefined;
+    if (descFmt?.fontSize && descFmt.fontSize > 11) {
+      rowH = Math.max(rowH, visualLines * descFmt.fontSize * 1.35);
+    }
+    r.height = rowH;
 
-      const fontObj: Partial<ExcelJS.Font> = { ...cell.font };
-      if (fmt.fontFamily) fontObj.name = fmt.fontFamily;
-      if (fmt.fontSize) fontObj.size = Math.round(fmt.fontSize * 0.75) || 8;
-      if (fmt.bold !== undefined) fontObj.bold = fmt.bold;
-      if (fmt.italic !== undefined) fontObj.italic = fmt.italic;
-      if (fmt.underline) {
-        fontObj.underline = fmt.underline === "double" ? "double" : fmt.underline === "single" ? true : false;
-      }
-      if (fmt.color) {
-        fontObj.color = { argb: fmt.color.replace("#", "") };
-      }
-      cell.font = fontObj;
+    const isLastItemRow = idx === displayRowCount - 1;
 
-      const alignObj: Partial<ExcelJS.Alignment> = { ...cell.alignment };
-      if (fmt.align) alignObj.horizontal = fmt.align;
-      if (fmt.valign) alignObj.vertical = fmt.valign === "top" ? "top" : fmt.valign === "middle" ? "middle" : "bottom";
-      if (fmt.indent) alignObj.indent = fmt.indent;
-      if (fmt.orientation) {
-        if (fmt.orientation === "angle-up") alignObj.textRotation = 45;
-        else if (fmt.orientation === "angle-down") alignObj.textRotation = -45;
-        else if (fmt.orientation === "vertical") alignObj.textRotation = 255;
-        else if (fmt.orientation === "rotate-up") alignObj.textRotation = 90;
-        else if (fmt.orientation === "rotate-down") alignObj.textRotation = -90;
-      }
-      cell.alignment = alignObj;
-
-      if (fmt.bgColor && fmt.bgColor !== "transparent") {
-        cell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: fmt.bgColor.replace("#", "") },
-        };
-      }
-    };
-
-    // Set SL
+    // Set SL (Col 1)
     const cellSL = r.getCell(1);
-    cellSL.value = rowData ? slVal : "";
-    cellSL.alignment = { vertical: "middle", horizontal: "center" };
-    cellSL.font = { name: "Arial", size: 8 };
-    applyCellFormatToExcel(cellSL, startSlIndex - 1 + idx, -1, "center");
+    applyCellFormatToExcel(cellSL, startSlIndex - 1 + idx, -1, "center", rowData ? String(slVal) : "", {
+      isLastRow: isLastItemRow,
+    });
 
-    // Set Description
+    // Set Description (Col 2)
     const cellDesc = r.getCell(2);
-    cellDesc.value = descVal;
-    cellDesc.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-    cellDesc.font = { name: "Arial", size: 8 };
-    applyCellFormatToExcel(cellDesc, startSlIndex - 1 + idx, 0, "left");
+    applyCellFormatToExcel(cellDesc, startSlIndex - 1 + idx, 0, "left", rawDesc, {
+      isLastRow: isLastItemRow,
+    });
 
-    // Set Qty
+    // Set Qty (Col 3)
     const cellQty = r.getCell(3);
-    cellQty.value = qtyVal === "" || isNaN(qtyVal) ? (rowData?.qty || "") : qtyVal;
-    cellQty.alignment = { vertical: "middle", horizontal: "center" };
-    cellQty.font = { name: "Arial", size: 8 };
-    if (typeof qtyVal === "number" && !isNaN(qtyVal)) {
+    applyCellFormatToExcel(cellQty, startSlIndex - 1 + idx, 1, "center", rawQty, {
+      isLastRow: isLastItemRow,
+      isNumeric: isNumericQty,
+      numericVal: typeof qtyVal === "number" ? qtyVal : undefined,
+    });
+    if (isNumericQty) {
       cellQty.numFmt = "#,##0.00";
     }
-    applyCellFormatToExcel(cellQty, startSlIndex - 1 + idx, 1, "center");
 
-    // Set Unit
+    // Set Unit (Col 4)
     const cellUnit = r.getCell(4);
-    cellUnit.value = unitVal;
-    cellUnit.alignment = { vertical: "middle", horizontal: "center" };
-    cellUnit.font = { name: "Arial", size: 8 };
-    applyCellFormatToExcel(cellUnit, startSlIndex - 1 + idx, 2, "center");
+    applyCellFormatToExcel(cellUnit, startSlIndex - 1 + idx, 2, "center", rawUnit, {
+      isLastRow: isLastItemRow,
+    });
 
-    // Solid Table Cell Borders
-    for (let col = 1; col <= totalCols; col++) {
-      const cell = r.getCell(col);
-      cell.border = {
-        top: { style: "thin", color: { argb: "000000" } },
-        bottom: { style: "thin", color: { argb: "000000" } },
-        left: { style: "thin", color: { argb: "000000" } },
-        right: { style: "thin", color: { argb: "000000" } },
-      };
-    }
-
-    // Set Price & Amount for Quotation / Invoice
+    // Set Price & Amount for Quotation / Invoice (Cols 5 & 6)
     if (!isChallan) {
-      const cleanPriceStr = rowData && rowData.price ? cleanCellText(rowData.price) : "";
-      const priceVal = cleanPriceStr ? parseNumericInput(cleanPriceStr) : "";
-
       const cellPrice = r.getCell(5);
-      cellPrice.value = priceVal === "" || isNaN(priceVal) ? (rowData?.price || "") : priceVal;
-      cellPrice.alignment = { vertical: "middle", horizontal: "right" };
-      cellPrice.font = { name: "Arial", size: 8 };
-      if (typeof priceVal === "number" && !isNaN(priceVal)) {
+      applyCellFormatToExcel(cellPrice, startSlIndex - 1 + idx, 3, "right", rawPrice, {
+        isLastRow: isLastItemRow,
+        isNumeric: isNumericPrice,
+        numericVal: typeof priceVal === "number" ? priceVal : undefined,
+      });
+      if (isNumericPrice) {
         cellPrice.numFmt = "#,##0.00";
       }
-      applyCellFormatToExcel(cellPrice, startSlIndex - 1 + idx, 3, "right");
 
       const cellAmount = r.getCell(6);
-      if (rowData && (rowData.desc.trim() || rowData.qty.trim() || rowData.price.trim())) {
-        cellAmount.value = {
-          formula: `=IF(OR(C${currentRowNum}="", E${currentRowNum}=""), 0, C${currentRowNum}*E${currentRowNum})`,
-        } as any;
-      } else {
-        cellAmount.value = "";
-      }
-      cellAmount.alignment = { vertical: "middle", horizontal: "right" };
-      cellAmount.font = { name: "Arial", size: 8 };
+      const hasContent = rowData && (plainDesc.trim() || cleanQtyStr || cleanPriceStr);
+      const amountFormula = hasContent
+        ? `=IF(OR(C${currentRowNum}="", E${currentRowNum}=""), 0, C${currentRowNum}*E${currentRowNum})`
+        : undefined;
+
+      applyCellFormatToExcel(cellAmount, startSlIndex - 1 + idx, 4, "right", undefined, {
+        isLastRow: isLastItemRow,
+        formula: amountFormula,
+      });
       cellAmount.numFmt = "#,##0.00";
-      applyCellFormatToExcel(cellAmount, startSlIndex - 1 + idx, 4, "right");
     }
 
     currentRowNum++;
-  }
-
-  // Draw medium bottom border on the last grid row
-  const lastGridRow = worksheet.getRow(currentRowNum - 1);
-  for (let col = 1; col <= totalCols; col++) {
-    const cell = lastGridRow.getCell(col);
-    cell.border = {
-      ...cell.border,
-      bottom: { style: "medium", color: { argb: "000000" } },
-    };
   }
 
   // Apply Cell Merging to Excel Worksheet for this page

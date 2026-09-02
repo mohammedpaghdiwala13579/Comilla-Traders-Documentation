@@ -1379,6 +1379,7 @@ export default function QuotationBuilder() {
     if (fmt.align) style.textAlign = fmt.align;
     if (fmt.valign) style.verticalAlign = fmt.valign;
     if (fmt.color) style.color = fmt.color;
+    if (fmt.bgColor) style.backgroundColor = fmt.bgColor;
     if (fmt.indent) {
       style.paddingLeft = `${fmt.indent * 8}px`;
       style.textIndent = `${fmt.indent * 8}px`;

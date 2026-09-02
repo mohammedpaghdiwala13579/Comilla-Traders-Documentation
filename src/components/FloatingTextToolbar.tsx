@@ -52,11 +52,12 @@ export const FloatingTextToolbar: React.FC<FloatingTextToolbarProps> = ({ onForm
   const [isBold, setIsBold] = useState<boolean>(false);
   const [isItalic, setIsItalic] = useState<boolean>(false);
   const [isUnderline, setIsUnderline] = useState<boolean>(false);
+  const [currentFontSize, setCurrentFontSize] = useState<number>(11);
   const [currentTextColor, setCurrentTextColor] = useState<string>("#000000");
   const [currentHighlightColor, setCurrentHighlightColor] = useState<string>("#FEF08A");
 
   // Dropdown popovers
-  const [openDropdown, setOpenDropdown] = useState<"textColor" | "highlight" | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<"textColor" | "highlight" | "fontSize" | null>(null);
 
   // References
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -76,11 +77,17 @@ export const FloatingTextToolbar: React.FC<FloatingTextToolbarProps> = ({ onForm
       if (node) {
         const computed = window.getComputedStyle(node);
         if (computed.color) {
-          // Keep active color or default
           setCurrentTextColor(computed.color);
         }
         if (computed.backgroundColor && computed.backgroundColor !== "rgba(0, 0, 0, 0)" && computed.backgroundColor !== "transparent") {
           setCurrentHighlightColor(computed.backgroundColor);
+        }
+        if (computed.fontSize) {
+          const px = parseFloat(computed.fontSize);
+          if (!isNaN(px)) {
+            const pt = Math.round(px * 0.75);
+            setCurrentFontSize(pt);
+          }
         }
       }
     } catch (e) {
@@ -135,7 +142,7 @@ export const FloatingTextToolbar: React.FC<FloatingTextToolbarProps> = ({ onForm
     targetEditableRef.current = editableEl;
     detectActiveFormatting(range);
 
-    const toolbarWidth = 270;
+    const toolbarWidth = 320;
     const toolbarHeight = 44;
     const viewportWidth = window.innerWidth;
 
@@ -323,6 +330,63 @@ export const FloatingTextToolbar: React.FC<FloatingTextToolbarProps> = ({ onForm
           >
             <Underline size={14} strokeWidth={2.4} />
           </button>
+
+          {/* Font Size Selector with Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              title="Font Size (Selection Only)"
+              onClick={() => setOpenDropdown(openDropdown === "fontSize" ? null : "fontSize")}
+              onMouseDown={(e) => e.preventDefault()}
+              className={`px-1.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                openDropdown === "fontSize" ? "bg-slate-800 text-white" : "text-slate-200 hover:text-white hover:bg-slate-800"
+              }`}
+            >
+              <span className="font-mono text-[11px] font-bold min-w-[20px] text-center">
+                {currentFontSize ? `${currentFontSize}` : "11"}
+              </span>
+              <ChevronDown size={10} className="text-slate-400" />
+            </button>
+
+            {/* Font Size Popover */}
+            {openDropdown === "fontSize" && (
+              <div
+                className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2 z-50 w-36"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-slate-800 text-[11px] font-medium text-slate-300">
+                  <span>Font Size</span>
+                  <button
+                    type="button"
+                    onClick={() => setOpenDropdown(null)}
+                    className="text-slate-400 hover:text-slate-200 p-0.5 rounded"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {[8, 9, 10, 11, 12, 14, 16, 18, 24].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => {
+                        setCurrentFontSize(size);
+                        handleApplyFormat("fontSize", size);
+                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      className={`py-1 text-center font-mono rounded text-[11px] transition-colors ${
+                        currentFontSize === size
+                          ? "bg-blue-600 text-white font-bold"
+                          : "text-slate-200 hover:bg-slate-800"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Divider */}
           <div className="w-px h-4 bg-slate-700 mx-1" />

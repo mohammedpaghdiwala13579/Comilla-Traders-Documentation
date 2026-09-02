@@ -36,6 +36,31 @@ export function saveCurrentSelection(): boolean {
 }
 
 /**
+ * Checks if there is an active (or recent) non-collapsed text selection inside a contenteditable element
+ */
+export function hasActiveSelectionInEditable(): boolean {
+  if (typeof window === "undefined") return false;
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim().length > 0) {
+    const range = sel.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const el = container instanceof HTMLElement ? container : container.parentElement;
+    if (el?.closest("[contenteditable='true']")) {
+      return true;
+    }
+  }
+
+  // Also check if we have a saved non-collapsed selection in an editable element
+  if (savedSelection && !savedSelection.range.collapsed && savedSelection.text.trim().length > 0) {
+    if (savedSelection.element && savedSelection.element.isConnected) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Returns the currently saved selection or active selection
  */
 export function getSavedSelection() {
@@ -132,7 +157,9 @@ export type InlineFormatType =
   | "resetWord";
 
 /**
- * Applies inline formatting specifically to the selected text or word under cursor
+ * Applies rich text formatting (bold, color, highlight, size) strictly using document.execCommand
+ * to the user's specific text selection range within the contenteditable element,
+ * completely preventing styles from bleeding into the entire container.
  */
 export function applyInlineFormatting(
   type: InlineFormatType,
@@ -180,7 +207,14 @@ export function applyInlineFormatting(
     return false;
   }
 
-  // If the selection is collapsed (cursor at position), auto-expand to the specific word under cursor!
+  // Ensure the target contenteditable element has focus
+  editableElement.focus();
+  try {
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch (e) {}
+
+  // If the selection is collapsed (cursor at position), auto-expand to the specific word under cursor
   if (range.collapsed) {
     const expanded = expandRangeToWordAtCursor(sel, range);
     if (expanded) {
@@ -188,26 +222,22 @@ export function applyInlineFormatting(
     }
   }
 
-  // If still collapsed or empty, nothing to format inline
-  if (range.collapsed && type !== "highlight" && type !== "fontColor") {
+  // If still collapsed and command is size/highlight, we need selected text to apply formatting
+  if (range.collapsed && (type === "highlight" || type === "fontSize" || type === "fontColor")) {
     return false;
-  }
-
-  // Ensure styleWithCSS is true so modern inline CSS styles are generated
-  try {
-    document.execCommand("styleWithCSS", false, "true");
-  } catch (e) {
-    // Ignore legacy quirks
   }
 
   const normalizedType = type === "hiliteColor" ? "highlight" : type === "foreColor" ? "fontColor" : type;
 
-  // 1. HIGHLIGHT / BACKGROUND COLOR
+  // 1. HIGHLIGHT / BACKGROUND COLOR (strictly using document.execCommand)
   if (normalizedType === "highlight") {
     const isTransparent = !value || value === "transparent" || value === "none" || value === "inherit" || value === "";
-    
+
+    try {
+      document.execCommand("styleWithCSS", false, "true");
+    } catch (e) {}
+
     if (isTransparent) {
-      // Remove highlight from the selected word / range
       try {
         document.execCommand("hiliteColor", false, "transparent");
       } catch (e) {}
@@ -226,15 +256,16 @@ export function applyInlineFormatting(
           ok = document.execCommand("backColor", false, colorVal);
         } catch (e) {}
       }
-      if (!ok) {
-        wrapRangeWithStyle(range, { backgroundColor: colorVal });
-      }
     }
   }
 
-  // 2. FONT / TEXT COLOR
+  // 2. FONT / TEXT COLOR (strictly using document.execCommand)
   else if (normalizedType === "fontColor") {
     const isDefault = !value || value === "inherit" || value === "automatic" || value === "auto" || value === "#000000";
+    try {
+      document.execCommand("styleWithCSS", false, "true");
+    } catch (e) {}
+
     if (isDefault) {
       try {
         document.execCommand("foreColor", false, "#000000");
@@ -242,52 +273,85 @@ export function applyInlineFormatting(
       removeStyleFromRange(range, editableElement, "color");
     } else {
       const colorVal = String(value);
-      let ok = false;
       try {
-        ok = document.execCommand("foreColor", false, colorVal);
+        document.execCommand("foreColor", false, colorVal);
       } catch (e) {}
-      if (!ok) {
-        wrapRangeWithStyle(range, { color: colorVal });
-      }
     }
   }
 
-  // 3. BOLD
+  // 3. BOLD (strictly using document.execCommand)
   else if (normalizedType === "bold") {
     document.execCommand("bold", false, undefined);
   }
 
-  // 4. ITALIC
+  // 4. ITALIC (strictly using document.execCommand)
   else if (normalizedType === "italic") {
     document.execCommand("italic", false, undefined);
   }
 
-  // 5. UNDERLINE
+  // 5. UNDERLINE (strictly using document.execCommand)
   else if (normalizedType === "underline") {
     if (value === "none") {
       removeStyleFromRange(range, editableElement, "textDecoration");
-    } else if (value === "double") {
-      wrapRangeWithStyle(range, { textDecoration: "underline", textDecorationStyle: "double" });
     } else {
       document.execCommand("underline", false, undefined);
     }
   }
 
-  // 6. FONT SIZE
+  // 6. FONT SIZE (strictly using document.execCommand)
   else if (normalizedType === "fontSize") {
-    const sizeStr = typeof value === "number" ? `${value}pt` : String(value || "11pt");
-    wrapRangeWithStyle(range, { fontSize: sizeStr.endsWith("pt") || sizeStr.endsWith("px") ? sizeStr : `${sizeStr}pt` });
+    const ptVal = typeof value === "number" ? value : parseFloat(String(value)) || 11;
+    const sizeStr = `${ptVal}pt`;
+
+    // Ensure styleWithCSS is false so fontSize generates <font size="7"> with distinct marker
+    try {
+      document.execCommand("styleWithCSS", false, "false");
+    } catch (e) {}
+
+    // Use placeholder marker size "7"
+    const success = document.execCommand("fontSize", false, "7");
+    if (success) {
+      // Find all generated <font size="7"> strictly within this editableElement and apply exact pt size
+      const fontNodes = editableElement.querySelectorAll('font[size="7"]');
+      fontNodes.forEach((node) => {
+        node.removeAttribute("size");
+        (node as HTMLElement).style.fontSize = sizeStr;
+      });
+    } else {
+      // Fallback with styleWithCSS true
+      try {
+        document.execCommand("styleWithCSS", false, "true");
+        document.execCommand("fontSize", false, "7");
+        const spans = editableElement.querySelectorAll('span[style*="font-size"]');
+        spans.forEach((span) => {
+          (span as HTMLElement).style.fontSize = sizeStr;
+        });
+      } catch (e) {}
+    }
   }
 
-  // 7. FONT FAMILY
+  // 7. FONT FAMILY (strictly using document.execCommand)
   else if (normalizedType === "fontFamily") {
     const familyStr = String(value || "Arial, sans-serif");
-    wrapRangeWithStyle(range, { fontFamily: familyStr });
+    try {
+      document.execCommand("fontName", false, familyStr);
+    } catch (e) {}
   }
 
-  // 8. CLEAR FORMATTING / RESET SPECIFIC WORD
+  // 8. CLEAR FORMATTING / RESET SPECIFIC WORD (strictly using document.execCommand)
   else if (normalizedType === "clearFormat" || normalizedType === "resetWord") {
-    resetFormattingInRange(range, editableElement);
+    try {
+      document.execCommand("removeFormat", false, undefined);
+    } catch (e) {}
+    try {
+      document.execCommand("hiliteColor", false, "transparent");
+    } catch (e) {}
+    try {
+      document.execCommand("backColor", false, "transparent");
+    } catch (e) {}
+    removeStyleFromRange(range, editableElement, "backgroundColor");
+    removeStyleFromRange(range, editableElement, "color");
+    removeStyleFromRange(range, editableElement, "textDecoration");
   }
 
   // Update saved selection after formatting

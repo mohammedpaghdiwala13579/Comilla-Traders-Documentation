@@ -13,7 +13,7 @@ import ExcelPasteModal from "./ExcelPasteModal";
 import ExcelRibbonToolbar from "./ExcelRibbonToolbar";
 import RichTextCell from "./RichTextCell";
 import FloatingTextToolbar from "./FloatingTextToolbar";
-import { stripHtml, parseNumericInput } from "../utils/textFormatter";
+import { stripHtml, parseNumericInput, applyInlineFormatting, hasActiveSelectionInEditable } from "../utils/textFormatter";
 
 enum OperationType {
   CREATE = 'create',
@@ -1227,6 +1227,44 @@ export default function QuotationBuilder() {
   }, [selectedCell, selectionStart, selectionEnd, selectedRowIndex]);
 
   const handleApplyFormat = (formatUpdate: Partial<CellFormat>) => {
+    // If the user has highlighted text or is editing an inline contenteditable element,
+    // apply formatting strictly using document.execCommand to the selected text range,
+    // preventing the styles from bleeding into the entire container!
+    if (hasActiveSelectionInEditable()) {
+      let handled = false;
+      if (formatUpdate.bold !== undefined) {
+        applyInlineFormatting("bold");
+        handled = true;
+      }
+      if (formatUpdate.italic !== undefined) {
+        applyInlineFormatting("italic");
+        handled = true;
+      }
+      if (formatUpdate.underline !== undefined) {
+        applyInlineFormatting("underline", formatUpdate.underline);
+        handled = true;
+      }
+      if (formatUpdate.color !== undefined) {
+        applyInlineFormatting("fontColor", formatUpdate.color);
+        handled = true;
+      }
+      if (formatUpdate.bgColor !== undefined) {
+        applyInlineFormatting("highlight", formatUpdate.bgColor);
+        handled = true;
+      }
+      if (formatUpdate.fontSize !== undefined) {
+        applyInlineFormatting("fontSize", formatUpdate.fontSize);
+        handled = true;
+      }
+      if (formatUpdate.fontFamily !== undefined) {
+        applyInlineFormatting("fontFamily", formatUpdate.fontFamily);
+        handled = true;
+      }
+      if (handled) {
+        return;
+      }
+    }
+
     setCellFormats((prev) => {
       const next = { ...prev };
 
@@ -1424,21 +1462,34 @@ export default function QuotationBuilder() {
       if (!e.ctrlKey && !e.metaKey) return;
 
       const target = e.target as HTMLElement;
+      const isContentEditable = target?.isContentEditable || !!target?.closest?.("[contenteditable='true']");
       const isSheetInput = target?.closest?.(".sheet") || target?.hasAttribute?.("data-row");
 
-      if (!selectedCell && !selectionStart && !isSheetInput) return;
+      if (!selectedCell && !selectionStart && !isSheetInput && !isContentEditable) return;
 
       const key = e.key.toLowerCase();
 
       if (key === "b") {
         e.preventDefault();
-        handleApplyFormat({ bold: !activeCellFormat.bold });
+        if (isContentEditable || hasActiveSelectionInEditable()) {
+          applyInlineFormatting("bold");
+        } else {
+          handleApplyFormat({ bold: !activeCellFormat.bold });
+        }
       } else if (key === "i") {
         e.preventDefault();
-        handleApplyFormat({ italic: !activeCellFormat.italic });
+        if (isContentEditable || hasActiveSelectionInEditable()) {
+          applyInlineFormatting("italic");
+        } else {
+          handleApplyFormat({ italic: !activeCellFormat.italic });
+        }
       } else if (key === "u") {
         e.preventDefault();
-        handleApplyFormat({ underline: activeCellFormat.underline === "single" ? "none" : "single" });
+        if (isContentEditable || hasActiveSelectionInEditable()) {
+          applyInlineFormatting("underline");
+        } else {
+          handleApplyFormat({ underline: activeCellFormat.underline === "single" ? "none" : "single" });
+        }
       } else if (key === "l" && !e.shiftKey) {
         e.preventDefault();
         handleApplyFormat({ align: "left" });
@@ -1451,11 +1502,21 @@ export default function QuotationBuilder() {
       } else if (e.shiftKey && (key === ">" || key === ".")) {
         e.preventDefault();
         const currentSize = activeCellFormat.fontSize || 8.5;
-        handleApplyFormat({ fontSize: Math.min(72, currentSize + 1) });
+        const newSize = Math.min(72, currentSize + 1);
+        if (isContentEditable || hasActiveSelectionInEditable()) {
+          applyInlineFormatting("fontSize", newSize);
+        } else {
+          handleApplyFormat({ fontSize: newSize });
+        }
       } else if (e.shiftKey && (key === "<" || key === ",")) {
         e.preventDefault();
         const currentSize = activeCellFormat.fontSize || 8.5;
-        handleApplyFormat({ fontSize: Math.max(5, currentSize - 1) });
+        const newSize = Math.max(5, currentSize - 1);
+        if (isContentEditable || hasActiveSelectionInEditable()) {
+          applyInlineFormatting("fontSize", newSize);
+        } else {
+          handleApplyFormat({ fontSize: newSize });
+        }
       }
     };
 

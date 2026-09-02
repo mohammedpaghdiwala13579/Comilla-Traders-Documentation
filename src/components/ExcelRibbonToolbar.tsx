@@ -220,10 +220,6 @@ export default function ExcelRibbonToolbar({
       // Only apply to cell if no editable text field is active
       onApplyFormat({ bgColor: color === "transparent" ? "" : color });
     }
-    if (color === "transparent") {
-      // If user chose No Fill, ensure any cell-level background color is also cleared
-      onApplyFormat({ bgColor: "" });
-    }
     setOpenDropdown(null);
   };
 

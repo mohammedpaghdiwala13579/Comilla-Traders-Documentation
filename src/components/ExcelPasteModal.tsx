@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, FileSpreadsheet, Check, ArrowRight, AlertCircle, Upload, Plus, Layers, HelpCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { parseClipboardData, parseHTMLTable, parseTSV, parseCSV, cleanCellText } from "../utils/tsvParser";
+import { parseNumericInput } from "../utils/textFormatter";
 import { QuotationRow } from "../types";
 
 interface ExcelPasteModalProps {
@@ -214,6 +215,7 @@ export default function ExcelPasteModal({
     const qtyColIdx = columnMappings.indexOf("qty");
     const unitColIdx = columnMappings.indexOf("unit");
     const priceColIdx = columnMappings.indexOf("price");
+    const amountColIdx = columnMappings.indexOf("amount");
 
     const convertedRows: QuotationRow[] = dataRows.map((row, idx) => {
       const desc = descColIdx >= 0 ? cleanCellText(row[descColIdx] || "") : "";
@@ -221,9 +223,15 @@ export default function ExcelPasteModal({
       const unit = unitColIdx >= 0 ? cleanCellText(row[unitColIdx] || "") : "";
       const price = priceColIdx >= 0 ? cleanCellText(row[priceColIdx] || "") : "";
 
-      const q = parseFloat(qty) || 0;
-      const p = parseFloat(price.replace(/,/g, "")) || 0;
-      const amount = docType === "challan" ? 0 : q * p;
+      const q = parseNumericInput(qty);
+      const p = parseNumericInput(price);
+      let amount = docType === "challan" ? 0 : q * p;
+      if (amountColIdx >= 0 && amount === 0 && (!price || !qty)) {
+        const directAmount = parseNumericInput(row[amountColIdx]);
+        if (directAmount !== 0) {
+          amount = directAmount;
+        }
+      }
 
       return {
         sl: idx + 1,

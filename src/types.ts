@@ -15,6 +15,30 @@ export interface MergedRegion {
   endCol: number;
 }
 
+export interface CellBorders {
+  top?: string;
+  bottom?: string;
+  left?: string;
+  right?: string;
+}
+
+export interface CellFormat {
+  fontFamily?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: "none" | "single" | "double";
+  align?: "left" | "center" | "right";
+  valign?: "top" | "middle" | "bottom";
+  indent?: number;
+  orientation?: "horizontal" | "angle-up" | "angle-down" | "vertical" | "rotate-up" | "rotate-down";
+  color?: string;
+  bgColor?: string;
+  borders?: CellBorders;
+}
+
+export type CellFormatMap = Record<string, CellFormat>;
+
 export interface SavedDocument {
   id: string;
   name: string;
@@ -30,6 +54,7 @@ export interface SavedDocument {
   poNumber?: string;
   rows: QuotationRow[];
   mergedRegions: MergedRegion[];
+  cellFormats?: CellFormatMap;
   vatPercent?: number;
   transportationFee?: number;
 }

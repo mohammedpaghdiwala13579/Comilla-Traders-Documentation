@@ -1,6 +1,10 @@
 // Helper to convert number to words in Indian numbering system (Lakhs, Crores) with "Taka Only" appended at the end
 export function numberToWords(num: number): string {
-  if (num === 0) return "Zero Taka Only";
+  if (isNaN(num) || num === 0) return "Zero Taka Only";
+  if (num < 0) {
+    const positiveWords = numberToWords(Math.abs(num));
+    return "Minus " + positiveWords;
+  }
 
   const ones = [
     "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",

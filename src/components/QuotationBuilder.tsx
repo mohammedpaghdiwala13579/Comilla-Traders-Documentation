@@ -7,9 +7,12 @@ import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "
 import { numberToWords } from "../utils/numberToWords";
 import { parseClipboardData, parseTSV, cleanCellText } from "../utils/tsvParser";
 import { generateExcelWorkbook } from "../utils/excelGenerator";
-import { QuotationRow, MergedRegion, SavedDocument } from "../types";
+import { QuotationRow, MergedRegion, SavedDocument, CellFormat, CellFormatMap, CellBorders } from "../types";
 import SavedDocumentsPanel from "./SavedDocumentsPanel";
 import ExcelPasteModal from "./ExcelPasteModal";
+import ExcelRibbonToolbar from "./ExcelRibbonToolbar";
+import RichTextCell from "./RichTextCell";
+import { stripHtml, parseNumericInput } from "../utils/textFormatter";
 
 enum OperationType {
   CREATE = 'create',
@@ -112,23 +115,39 @@ function replaceOklchInCss(cssText: string): string {
   });
 }
 
+const DRAFT_STORAGE_KEY = "comilla_active_draft_v2";
+
+const loadInitialDraft = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+};
+
 export default function QuotationBuilder() {
-  const [docType, setDocType] = useState<"quotation" | "challan" | "invoice">("quotation");
+  const initialDraft = useRef(loadInitialDraft()).current;
+
+  const [docType, setDocType] = useState<"quotation" | "challan" | "invoice">(() => initialDraft?.docType || "quotation");
   const [dateVal, setDateVal] = useState(() => {
+    if (initialDraft?.dateVal) return initialDraft.dateVal;
     const today = new Date();
     const dd = String(today.getDate()).padStart(2, "0");
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const yyyy = today.getFullYear();
     return `${dd}/${mm}/${yyyy}`;
   });
-  const [messers, setMessers] = useState("");
-  const [address, setAddress] = useState("");
-  const [challanNo, setChallanNo] = useState("");
-  const [requisitionNo, setRequisitionNo] = useState("");
-  const [invoiceNo, setInvoiceNo] = useState("");
-  const [poNumber, setPoNumber] = useState("");
-  const [vatPercent, setVatPercent] = useState<string>("0");
-  const [transportationFee, setTransportationFee] = useState<string>("0");
+  const [messers, setMessers] = useState(() => initialDraft?.messers || "");
+  const [address, setAddress] = useState(() => initialDraft?.address || "");
+  const [challanNo, setChallanNo] = useState(() => initialDraft?.challanNo || "");
+  const [requisitionNo, setRequisitionNo] = useState(() => initialDraft?.requisitionNo || "");
+  const [invoiceNo, setInvoiceNo] = useState(() => initialDraft?.invoiceNo || "");
+  const [poNumber, setPoNumber] = useState(() => initialDraft?.poNumber || "");
+  const [vatPercent, setVatPercent] = useState<string>(() => initialDraft?.vatPercent !== undefined ? String(initialDraft.vatPercent) : "0");
+  const [transportationFee, setTransportationFee] = useState<string>(() => initialDraft?.transportationFee !== undefined ? String(initialDraft.transportationFee) : "0");
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
@@ -136,7 +155,7 @@ export default function QuotationBuilder() {
   const [savedDocs, setSavedDocs] = useState<SavedDocument[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<"all" | "quotation" | "challan" | "invoice">("all");
-  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
+  const [currentDocId, setCurrentDocId] = useState<string | null>(() => initialDraft?.currentDocId || null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       const val = localStorage.getItem("comilla_autosave_enabled");
@@ -160,8 +179,11 @@ export default function QuotationBuilder() {
     }, 3500);
   };
 
-  // Grid rows: starts with 20 blank rows by default
+  // Grid rows: starts with saved draft rows or 20 blank rows by default
   const [rows, setRows] = useState<QuotationRow[]>(() => {
+    if (initialDraft?.rows && Array.isArray(initialDraft.rows) && initialDraft.rows.length > 0) {
+      return initialDraft.rows;
+    }
     const initialRows: QuotationRow[] = [];
     for (let i = 1; i <= 20; i++) {
       initialRows.push({
@@ -176,7 +198,8 @@ export default function QuotationBuilder() {
     return initialRows;
   });
 
-  const [mergedRegions, setMergedRegions] = useState<MergedRegion[]>([]);
+  const [mergedRegions, setMergedRegions] = useState<MergedRegion[]>(() => initialDraft?.mergedRegions || []);
+  const [cellFormats, setCellFormats] = useState<CellFormatMap>(() => initialDraft?.cellFormats || {});
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(0);
   const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; colIndex: number } | null>({ rowIndex: 0, colIndex: 0 });
   const [isSelecting, setIsSelecting] = useState<boolean>(false);
@@ -253,7 +276,10 @@ export default function QuotationBuilder() {
           invoiceNo: data.invoiceNo || "",
           poNumber: data.poNumber || "",
           rows: docRows,
-          mergedRegions: docMergedRegions
+          mergedRegions: docMergedRegions,
+          cellFormats: (data.cellFormats as CellFormatMap) || {},
+          vatPercent: data.vatPercent,
+          transportationFee: data.transportationFee
         });
       });
       setSavedDocs(docs);
@@ -320,6 +346,7 @@ export default function QuotationBuilder() {
       poNumber: String(poNumber || ""),
       rows: sanitizedRows,
       mergedRegions: sanitizedMergedRegions,
+      cellFormats: { ...cellFormats },
       vatPercent: parseFloat(vatPercent) || 0,
       transportationFee: parseFloat(transportationFee) || 0
     };
@@ -371,8 +398,12 @@ export default function QuotationBuilder() {
     }
     setRows(initialRows);
     setMergedRegions([]);
+    setCellFormats({});
     setCurrentDocId(null);
     setLastSavedTime(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
   };
 
   const loadSavedDoc = (doc: SavedDocument) => {
@@ -386,6 +417,7 @@ export default function QuotationBuilder() {
     setPoNumber(doc.poNumber || "");
     setRows(doc.rows.map(r => ({ ...r })));
     setMergedRegions((doc.mergedRegions || []).map(m => ({ ...m })));
+    setCellFormats(doc.cellFormats ? { ...doc.cellFormats } : {});
     setCurrentDocId(doc.id);
     setLastSavedTime(null);
     setVatPercent(doc.vatPercent !== undefined ? String(doc.vatPercent) : "0");
@@ -465,6 +497,7 @@ export default function QuotationBuilder() {
           amount: r.amount
         })),
         mergedRegions: mergedRegions.map(m => ({ ...m })),
+        cellFormats: { ...cellFormats },
         vatPercent: parseFloat(vatPercent) || 0,
         transportationFee: parseFloat(transportationFee) || 0,
         createdAt: new Date().toISOString(),
@@ -544,6 +577,7 @@ export default function QuotationBuilder() {
         poNumber: String(poNumber || ""),
         rows: sanitizedRows,
         mergedRegions: sanitizedMergedRegions,
+        cellFormats: { ...cellFormats },
         vatPercent: parseFloat(vatPercent) || 0,
         transportationFee: parseFloat(transportationFee) || 0
       };
@@ -579,10 +613,52 @@ export default function QuotationBuilder() {
     poNumber,
     rows,
     mergedRegions,
+    cellFormats,
     autoSaveEnabled,
     currentDocId,
     vatPercent,
     transportationFee
+  ]);
+
+  // Active sheet draft persistence to prevent any loss of transportation fee, rows, or details on app reopen
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const draftPayload = {
+        docType,
+        dateVal,
+        messers,
+        address,
+        challanNo,
+        requisitionNo,
+        invoiceNo,
+        poNumber,
+        vatPercent,
+        transportationFee,
+        currentDocId,
+        rows,
+        mergedRegions,
+        cellFormats
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
+    } catch (e) {
+      // Ignore localStorage storage quota errors
+    }
+  }, [
+    docType,
+    dateVal,
+    messers,
+    address,
+    challanNo,
+    requisitionNo,
+    invoiceNo,
+    poNumber,
+    vatPercent,
+    transportationFee,
+    currentDocId,
+    rows,
+    mergedRegions,
+    cellFormats
   ]);
 
   // Adjust textarea heights dynamically based on content
@@ -616,9 +692,11 @@ export default function QuotationBuilder() {
         (targetRow as any)[field] = value;
       }
 
-      const q = parseFloat(String(targetRow.qty || "")) || 0;
-      const p = parseFloat(String(targetRow.price || "").replace(/,/g, "")) || 0;
-      targetRow.amount = q * p;
+      const cleanQty = stripHtml(String(targetRow.qty || ""));
+      const cleanPrice = stripHtml(String(targetRow.price || ""));
+      const q = parseNumericInput(cleanQty);
+      const p = parseNumericInput(cleanPrice);
+      targetRow.amount = docType === "challan" ? 0 : q * p;
 
       updated[index] = targetRow;
       return updated;
@@ -946,9 +1024,9 @@ export default function QuotationBuilder() {
             (updated[r] as any)[field] = "";
           }
         }
-        const q = parseFloat(String(updated[r].qty || "")) || 0;
-        const p = parseFloat(String(updated[r].price || "").replace(/,/g, "")) || 0;
-        updated[r].amount = q * p;
+        const q = parseNumericInput(updated[r].qty);
+        const p = parseNumericInput(updated[r].price);
+        updated[r].amount = docType === "challan" ? 0 : q * p;
       }
       return updated;
     });
@@ -1089,6 +1167,281 @@ export default function QuotationBuilder() {
     return `${baseClasses} ${highlightClass}`;
   };
 
+  const COLUMN_NAMES: Record<number, string> = {
+    [-1]: "SL",
+    0: "Description",
+    1: "Qty",
+    2: "Unit",
+    3: "Unit Price",
+    4: "Amount",
+  };
+
+  const activeCellFormat: CellFormat = React.useMemo(() => {
+    if (selectedCell) {
+      const key = `${selectedCell.rowIndex}_${selectedCell.colIndex}`;
+      return cellFormats[key] || {};
+    }
+    if (selectionStart) {
+      const key = `${selectionStart.rowIndex}_${selectionStart.colIndex}`;
+      return cellFormats[key] || {};
+    }
+    return {};
+  }, [selectedCell, selectionStart, cellFormats]);
+
+  const selectionSummary = React.useMemo(() => {
+    if (selectionStart && selectionEnd && (selectionStart.rowIndex !== selectionEnd.rowIndex || selectionStart.colIndex !== selectionEnd.colIndex)) {
+      const minRow = Math.min(selectionStart.rowIndex, selectionEnd.rowIndex);
+      const maxRow = Math.max(selectionStart.rowIndex, selectionEnd.rowIndex);
+      const minCol = Math.min(selectionStart.colIndex, selectionEnd.colIndex);
+      const maxCol = Math.max(selectionStart.colIndex, selectionEnd.colIndex);
+      const totalCells = (maxRow - minRow + 1) * (maxCol - minCol + 1);
+      return `Rows ${minRow + 1}–${maxRow + 1}, Cols ${COLUMN_NAMES[minCol] || minCol}–${COLUMN_NAMES[maxCol] || maxCol} (${totalCells} cells)`;
+    }
+    if (selectedCell) {
+      return `Row ${selectedCell.rowIndex + 1}, ${COLUMN_NAMES[selectedCell.colIndex] || "Cell"}`;
+    }
+    if (selectedRowIndex >= 0) {
+      return `Row ${selectedRowIndex + 1} (Entire Row)`;
+    }
+    return undefined;
+  }, [selectedCell, selectionStart, selectionEnd, selectedRowIndex]);
+
+  const handleApplyFormat = (formatUpdate: Partial<CellFormat>) => {
+    setCellFormats((prev) => {
+      const next = { ...prev };
+
+      if (selectionStart && selectionEnd) {
+        const minRow = Math.min(selectionStart.rowIndex, selectionEnd.rowIndex);
+        const maxRow = Math.max(selectionStart.rowIndex, selectionEnd.rowIndex);
+        const minCol = Math.min(selectionStart.colIndex, selectionEnd.colIndex);
+        const maxCol = Math.max(selectionStart.colIndex, selectionEnd.colIndex);
+
+        for (let r = minRow; r <= maxRow; r++) {
+          for (let c = minCol; c <= maxCol; c++) {
+            const key = `${r}_${c}`;
+            next[key] = {
+              ...(next[key] || {}),
+              ...formatUpdate,
+            };
+          }
+        }
+      } else if (selectedCell) {
+        const key = `${selectedCell.rowIndex}_${selectedCell.colIndex}`;
+        next[key] = {
+          ...(next[key] || {}),
+          ...formatUpdate,
+        };
+      } else if (selectedRowIndex >= 0) {
+        [-1, 0, 1, 2, 3, 4].forEach((c) => {
+          const key = `${selectedRowIndex}_${c}`;
+          next[key] = {
+            ...(next[key] || {}),
+            ...formatUpdate,
+          };
+        });
+      }
+
+      return next;
+    });
+  };
+
+  const handleApplyBorderPreset = (preset: string) => {
+    setCellFormats((prev) => {
+      const next = { ...prev };
+      const minRow = selectionStart && selectionEnd ? Math.min(selectionStart.rowIndex, selectionEnd.rowIndex) : (selectedCell ? selectedCell.rowIndex : selectedRowIndex);
+      const maxRow = selectionStart && selectionEnd ? Math.max(selectionStart.rowIndex, selectionEnd.rowIndex) : (selectedCell ? selectedCell.rowIndex : selectedRowIndex);
+      const minCol = selectionStart && selectionEnd ? Math.min(selectionStart.colIndex, selectionEnd.colIndex) : (selectedCell ? selectedCell.colIndex : -1);
+      const maxCol = selectionStart && selectionEnd ? Math.max(selectionStart.colIndex, selectionEnd.colIndex) : (selectedCell ? selectedCell.colIndex : 4);
+
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+          const key = `${r}_${c}`;
+          const existing = next[key] || {};
+          let borders: CellBorders = { ...(existing.borders || {}) };
+
+          const isTop = r === minRow;
+          const isBottom = r === maxRow;
+          const isLeft = c === minCol;
+          const isRight = c === maxCol;
+
+          switch (preset) {
+            case "all":
+              borders = {
+                top: "1px solid black",
+                bottom: "1px solid black",
+                left: "1px solid black",
+                right: "1px solid black",
+              };
+              break;
+            case "none":
+              borders = {
+                top: "none",
+                bottom: "none",
+                left: "none",
+                right: "none",
+              };
+              break;
+            case "outside":
+              if (isTop) borders.top = "1px solid black";
+              if (isBottom) borders.bottom = "1px solid black";
+              if (isLeft) borders.left = "1px solid black";
+              if (isRight) borders.right = "1px solid black";
+              break;
+            case "thick_outside":
+              if (isTop) borders.top = "2px solid black";
+              if (isBottom) borders.bottom = "2px solid black";
+              if (isLeft) borders.left = "2px solid black";
+              if (isRight) borders.right = "2px solid black";
+              break;
+            case "bottom":
+              if (isBottom) borders.bottom = "1px solid black";
+              break;
+            case "top":
+              if (isTop) borders.top = "1px solid black";
+              break;
+            case "left":
+              if (isLeft) borders.left = "1px solid black";
+              break;
+            case "right":
+              if (isRight) borders.right = "1px solid black";
+              break;
+            case "thick_bottom":
+              if (isBottom) borders.bottom = "2px solid black";
+              break;
+            case "bottom_double":
+              if (isBottom) borders.bottom = "3px double black";
+              break;
+            case "top_and_bottom":
+              if (isTop) borders.top = "1px solid black";
+              if (isBottom) borders.bottom = "1px solid black";
+              break;
+            case "top_and_thick_bottom":
+              if (isTop) borders.top = "1px solid black";
+              if (isBottom) borders.bottom = "2px solid black";
+              break;
+            case "top_and_double_bottom":
+              if (isTop) borders.top = "1px solid black";
+              if (isBottom) borders.bottom = "3px double black";
+              break;
+          }
+
+          next[key] = {
+            ...existing,
+            borders,
+          };
+        }
+      }
+
+      return next;
+    });
+  };
+
+  const getCellStyle = (rowIndex: number, colIndex: number): React.CSSProperties => {
+    const key = `${rowIndex}_${colIndex}`;
+    const fmt = cellFormats[key];
+    if (!fmt) return {};
+
+    const style: React.CSSProperties = {};
+
+    if (fmt.fontFamily) style.fontFamily = fmt.fontFamily;
+    if (fmt.fontSize) style.fontSize = `${fmt.fontSize}pt`;
+    if (fmt.bold !== undefined) style.fontWeight = fmt.bold ? "bold" : "normal";
+    if (fmt.italic !== undefined) style.fontStyle = fmt.italic ? "italic" : "normal";
+    if (fmt.underline) {
+      if (fmt.underline === "double") {
+        style.textDecoration = "underline";
+        style.textDecorationStyle = "double";
+      } else if (fmt.underline === "single") {
+        style.textDecoration = "underline";
+      } else {
+        style.textDecoration = "none";
+      }
+    }
+    if (fmt.align) style.textAlign = fmt.align;
+    if (fmt.valign) style.verticalAlign = fmt.valign;
+    if (fmt.color) style.color = fmt.color;
+    if (fmt.indent) {
+      style.paddingLeft = `${fmt.indent * 8}px`;
+      style.textIndent = `${fmt.indent * 8}px`;
+    }
+    if (fmt.orientation && fmt.orientation !== "horizontal") {
+      switch (fmt.orientation) {
+        case "angle-up":
+          style.transform = "rotate(-45deg)";
+          style.display = "inline-block";
+          break;
+        case "angle-down":
+          style.transform = "rotate(45deg)";
+          style.display = "inline-block";
+          break;
+        case "vertical":
+          style.writingMode = "vertical-rl";
+          break;
+        case "rotate-up":
+          style.transform = "rotate(-90deg)";
+          style.display = "inline-block";
+          break;
+        case "rotate-down":
+          style.transform = "rotate(90deg)";
+          style.display = "inline-block";
+          break;
+      }
+    }
+
+    if (fmt.borders) {
+      if (fmt.borders.top) style.borderTop = fmt.borders.top;
+      if (fmt.borders.bottom) style.borderBottom = fmt.borders.bottom;
+      if (fmt.borders.left) style.borderLeft = fmt.borders.left;
+      if (fmt.borders.right) style.borderRight = fmt.borders.right;
+    }
+
+    return style;
+  };
+
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+
+      const target = e.target as HTMLElement;
+      const isSheetInput = target?.closest?.(".sheet") || target?.hasAttribute?.("data-row");
+
+      if (!selectedCell && !selectionStart && !isSheetInput) return;
+
+      const key = e.key.toLowerCase();
+
+      if (key === "b") {
+        e.preventDefault();
+        handleApplyFormat({ bold: !activeCellFormat.bold });
+      } else if (key === "i") {
+        e.preventDefault();
+        handleApplyFormat({ italic: !activeCellFormat.italic });
+      } else if (key === "u") {
+        e.preventDefault();
+        handleApplyFormat({ underline: activeCellFormat.underline === "single" ? "none" : "single" });
+      } else if (key === "l" && !e.shiftKey) {
+        e.preventDefault();
+        handleApplyFormat({ align: "left" });
+      } else if (key === "e" && !e.shiftKey) {
+        e.preventDefault();
+        handleApplyFormat({ align: "center" });
+      } else if (key === "r" && !e.shiftKey) {
+        e.preventDefault();
+        handleApplyFormat({ align: "right" });
+      } else if (e.shiftKey && (key === ">" || key === ".")) {
+        e.preventDefault();
+        const currentSize = activeCellFormat.fontSize || 8.5;
+        handleApplyFormat({ fontSize: Math.min(72, currentSize + 1) });
+      } else if (e.shiftKey && (key === "<" || key === ",")) {
+        e.preventDefault();
+        const currentSize = activeCellFormat.fontSize || 8.5;
+        handleApplyFormat({ fontSize: Math.max(5, currentSize - 1) });
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalShortcuts);
+    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
+  }, [activeCellFormat, selectedCell, selectionStart, selectionEnd, selectedRowIndex]);
+
   const handleCellClick = (rowIndex: number, colIndex: number) => {
     setSelectedRowIndex(rowIndex);
     setSelectedCell({ rowIndex, colIndex });
@@ -1136,20 +1489,37 @@ export default function QuotationBuilder() {
   };
 
   const rowsTotal = rows.reduce((sum, r) => sum + r.amount, 0);
-  const parsedVatPercent = parseFloat(vatPercent) || 0;
-  const parsedTransportationFee = parseFloat(transportationFee) || 0;
+  const parsedVatPercent = parseNumericInput(vatPercent);
+  const parsedTransportationFee = parseNumericInput(transportationFee);
   const vatAmount = docType === "invoice" ? (rowsTotal * parsedVatPercent) / 100 : 0;
   const grandTotal = docType === "invoice" ? (rowsTotal + vatAmount + parsedTransportationFee) : rowsTotal;
   const calculatedGrandTotal = docType === "challan" ? 0 : grandTotal;
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, rowIndex: number, colIndex: number) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, rowIndex: number, colIndex: number) => {
     const { key } = e;
     let targetRow = rowIndex;
     let targetCol = colIndex;
 
-    const cursorStart = e.currentTarget.selectionStart;
-    const cursorEnd = e.currentTarget.selectionEnd;
-    const valueLength = e.currentTarget.value.length;
+    const targetEl = e.currentTarget;
+    const isFormInput = targetEl instanceof HTMLInputElement || targetEl instanceof HTMLTextAreaElement;
+
+    let cursorStart = 0;
+    let cursorEnd = 0;
+    let valueLength = 0;
+
+    if (isFormInput) {
+      cursorStart = targetEl.selectionStart ?? 0;
+      cursorEnd = targetEl.selectionEnd ?? 0;
+      valueLength = targetEl.value?.length ?? 0;
+    } else {
+      const sel = typeof window !== "undefined" ? window.getSelection() : null;
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        cursorStart = range.startOffset;
+        cursorEnd = range.endOffset;
+      }
+      valueLength = (targetEl.textContent || "").length;
+    }
 
     if (key === "ArrowUp") {
       targetRow = rowIndex - 1;
@@ -1168,6 +1538,9 @@ export default function QuotationBuilder() {
         return;
       }
     } else if (key === "Enter") {
+      if (e.shiftKey) {
+        return;
+      }
       targetRow = rowIndex + 1;
     } else {
       return;
@@ -1176,18 +1549,18 @@ export default function QuotationBuilder() {
     e.preventDefault();
     const targetElement = document.querySelector(
       `[data-row="${targetRow}"][data-col="${targetCol}"]`
-    ) as HTMLInputElement | HTMLTextAreaElement | null;
+    ) as HTMLElement | null;
 
     if (targetElement) {
       targetElement.focus();
-      if (typeof targetElement.select === "function") {
-        targetElement.select();
+      if (typeof (targetElement as any).select === "function") {
+        (targetElement as any).select();
       }
     }
   };
 
   const handlePaste = (
-    e: React.ClipboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+    e: React.ClipboardEvent<HTMLElement>,
     startRowIndex: number,
     startColIndex: number
   ) => {
@@ -1199,26 +1572,28 @@ export default function QuotationBuilder() {
     const result = parseClipboardData({ text: plainText, html: htmlText });
     const parsedGrid = result.grid;
 
-    if (parsedGrid.length === 0) return;
+    if (!parsedGrid || parsedGrid.length === 0) return;
 
-    // 1. Single plain cell without internal newlines -> insert text at cursor
+    // 1. Single plain cell without internal newlines -> allow default inline insertion
     if (parsedGrid.length === 1 && parsedGrid[0].length === 1 && !parsedGrid[0][0].includes("\n")) {
-      const parsedVal = cleanCellText(parsedGrid[0][0]);
-      const textarea = e.currentTarget as HTMLTextAreaElement;
-      const start = textarea.selectionStart ?? 0;
-      const end = textarea.selectionEnd ?? 0;
-      const currentValue = textarea.value || "";
-      const newValue = currentValue.substring(0, start) + parsedVal + currentValue.substring(end);
-      
-      const fieldMap = ["desc", "qty", "unit", "price"] as const;
-      const field = fieldMap[startColIndex];
-      if (field) {
-        e.preventDefault();
-        handleRowChange(startRowIndex, field, newValue);
-        setTimeout(() => {
-          textarea.focus();
-          textarea.selectionStart = textarea.selectionEnd = start + parsedVal.length;
-        }, 0);
+      const targetEl = e.currentTarget;
+      if (targetEl instanceof HTMLInputElement || targetEl instanceof HTMLTextAreaElement) {
+        const parsedVal = cleanCellText(parsedGrid[0][0]);
+        const start = targetEl.selectionStart ?? 0;
+        const end = targetEl.selectionEnd ?? 0;
+        const currentValue = targetEl.value || "";
+        const newValue = currentValue.substring(0, start) + parsedVal + currentValue.substring(end);
+
+        const fieldMap = ["desc", "qty", "unit", "price"] as const;
+        const field = fieldMap[startColIndex];
+        if (field) {
+          e.preventDefault();
+          handleRowChange(startRowIndex, field, newValue);
+          setTimeout(() => {
+            targetEl.focus();
+            targetEl.selectionStart = targetEl.selectionEnd = start + parsedVal.length;
+          }, 0);
+        }
       }
       return;
     }
@@ -1293,8 +1668,10 @@ export default function QuotationBuilder() {
           });
         }
 
-        const q = parseFloat(String(targetRow.qty || "")) || 0;
-        const p = parseFloat(String(targetRow.price || "").replace(/,/g, "")) || 0;
+        const cleanQty = stripHtml(String(targetRow.qty || ""));
+        const cleanPrice = stripHtml(String(targetRow.price || ""));
+        const q = parseNumericInput(cleanQty);
+        const p = parseNumericInput(cleanPrice);
         targetRow.amount = docType === "challan" ? 0 : q * p;
         updated[rIndex] = targetRow;
       });
@@ -1345,8 +1722,9 @@ export default function QuotationBuilder() {
         mergedRegions,
         invoiceNo,
         poNumber,
-        parseFloat(vatPercent) || 0,
-        parseFloat(transportationFee) || 0
+        parseNumericInput(vatPercent),
+        parseNumericInput(transportationFee),
+        cellFormats
       );
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1552,192 +1930,83 @@ export default function QuotationBuilder() {
   const GRID_COLUMNS = docType === "challan" ? [-1, 0, 1, 2] : [-1, 0, 1, 2, 3, 4];
 
   return (
-    <div className="quotation-container relative min-h-screen flex flex-col items-center bg-slate-50 py-5 overflow-x-auto text-[#000] font-sans antialiased w-full">
+    <div className="quotation-container relative min-h-screen flex flex-col items-center bg-slate-50 py-3 sm:py-4 text-[#000] font-sans antialiased w-full">
       
-      {/* Mini App Toolbar - Consolidated Single Bar */}
-      <div className="top-toolbar no-print print:hidden w-full max-w-[210mm] mb-3 flex flex-col md:flex-row justify-between items-center gap-2 px-3 sm:px-0 z-10">
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between md:justify-start">
-          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-sm shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                setDocType("quotation");
-                setMergedRegions([]);
-              }}
-              className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                docType === "quotation"
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-100"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Quotation
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDocType("challan");
-                setMergedRegions([]);
-              }}
-              className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                docType === "challan"
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-100"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Challan
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDocType("invoice");
-                setMergedRegions([]);
-              }}
-              className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                docType === "invoice"
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-100"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Invoice
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-xs shrink-0">
-            <label className="relative inline-flex items-center cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={autoSaveEnabled}
-                onChange={(e) => {
-                  setAutoSaveEnabled(e.target.checked);
-                  localStorage.setItem("comilla_autosave_enabled", String(e.target.checked));
-                }}
-                className="sr-only peer"
-              />
-              <div className="w-7 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1.5px] after:left-[1.5px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
-              <span className="ml-1.5 text-[9px] font-bold text-slate-600 uppercase tracking-wider">Auto-Save</span>
-            </label>
-            {lastSavedTime && (
-              <span className="text-[8px] text-emerald-600 font-medium flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="hidden sm:inline">{lastSavedTime}</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto justify-end">
-          <button 
-            onClick={startNewDoc} 
-            className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-[10px] py-1 px-2.5 rounded-md shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1"
-            title="Start a fresh blank sheet"
-          >
-            <Plus className="h-3 w-3" />
-            <span>NEW SHEET</span>
-          </button>
-          
-          {currentDocId && (
-            <>
-              <button 
-                onClick={duplicateCurrentDoc} 
-                className="bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-[10px] py-1 px-2.5 rounded-md shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1"
-                title="Save a duplicated copy"
-              >
-                <Copy className="h-3 w-3" />
-                <span>DUPLICATE</span>
-              </button>
-              <button 
-                onClick={() => deleteSavedDoc(currentDocId)} 
-                className="bg-white hover:bg-rose-50 border border-rose-200 text-rose-600 hover:text-rose-700 font-bold text-[10px] py-1 px-2.5 rounded-md shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1"
-                title="Delete this sheet"
-              >
-                <Trash2 className="h-3 w-3 text-rose-500" />
-                <span>DELETE</span>
-              </button>
-            </>
-          )}
-
-          <button 
-            onClick={() => saveCurrentDocToApp()} 
-            disabled={saveStatus === "saving"}
-            className={`${
-              saveStatus === "saved" 
-                ? "bg-emerald-600 hover:bg-emerald-700" 
-                : saveStatus === "error" 
-                ? "bg-rose-600 hover:bg-rose-700" 
-                : "bg-indigo-600 hover:bg-indigo-700"
-            } text-white font-bold text-[10px] py-1 px-2.5 rounded-md shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1 disabled:opacity-85`}
-            title="Save to Cloud Database"
-          >
-            {saveStatus === "saving" ? (
-              <>
-                <RefreshCw className="h-3 w-3 animate-spin" />
-                <span>SAVING...</span>
-              </>
-            ) : saveStatus === "saved" ? (
-              <>
-                <Check className="h-3 w-3" />
-                <span>SAVED</span>
-              </>
-            ) : (
-              <>
-                <Save className="h-3 w-3" />
-                <span>SAVE</span>
-              </>
-            )}
-          </button>
-
-          <button 
-            onClick={() => setIsExcelModalOpen(true)}
-            className="px-2.5 py-1 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 font-extrabold text-[10px] shadow-sm hover:shadow ring-1 ring-emerald-400/40"
-            title="Smart Paste from Excel, Sheets, or CSV"
-          >
-            <FileSpreadsheet className="h-3 w-3" />
-            <span>PASTE EXCEL</span>
-          </button>
-
-          <button 
-            onClick={handleDownloadExcel}
-            disabled={isGeneratingExcel}
-            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px] shadow-sm hover:shadow"
-            title="Export Excel (.xlsx)"
-          >
-            <Download className="h-3 w-3" />
-            <span>{isGeneratingExcel ? "GENERATING..." : "EXPORT EXCEL"}</span>
-          </button>
-
-          <button 
-            onClick={handlePrint}
-            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px] shadow-sm hover:shadow"
-            title="Print or Save as PDF"
-          >
-            <Printer className="h-3 w-3" />
-            <span>PRINT A4</span>
-          </button>
-        </div>
+      {/* Consolidated Top Toolbar Table - Sticky at Top of Whole Page */}
+      <div className="sticky top-0 z-40 w-full max-w-[210mm] px-2 sm:px-0 no-print print:hidden mb-2">
+        <ExcelRibbonToolbar
+          activeFormat={activeCellFormat}
+          onApplyFormat={handleApplyFormat}
+          onApplyBorderPreset={handleApplyBorderPreset}
+          selectionSummary={selectionSummary}
+          canMerge={!!(selectionStart && selectionEnd && (selectionStart.rowIndex !== selectionEnd.rowIndex || selectionStart.colIndex !== selectionEnd.colIndex))}
+          onToggleMerge={toggleMergeSelectedRange}
+          onClearFormatting={() => {
+            if (selectionStart && selectionEnd) {
+              const minRow = Math.min(selectionStart.rowIndex, selectionEnd.rowIndex);
+              const maxRow = Math.max(selectionStart.rowIndex, selectionEnd.rowIndex);
+              const minCol = Math.min(selectionStart.colIndex, selectionEnd.colIndex);
+              const maxCol = Math.max(selectionStart.colIndex, selectionEnd.colIndex);
+              setCellFormats((prev) => {
+                const next = { ...prev };
+                for (let r = minRow; r <= maxRow; r++) {
+                  for (let c = minCol; c <= maxCol; c++) {
+                    delete next[`${r}_${c}`];
+                  }
+                }
+                return next;
+              });
+            } else if (selectedCell) {
+              setCellFormats((prev) => {
+                const next = { ...prev };
+                delete next[`${selectedCell.rowIndex}_${selectedCell.colIndex}`];
+                return next;
+              });
+            } else if (selectedRowIndex >= 0) {
+              setCellFormats((prev) => {
+                const next = { ...prev };
+                [-1, 0, 1, 2, 3, 4].forEach((c) => {
+                  delete next[`${selectedRowIndex}_${c}`];
+                });
+                return next;
+              });
+            }
+          }}
+          docType={docType}
+          onSelectDocType={(type) => {
+            setDocType(type);
+            setMergedRegions([]);
+            setRows((prev) =>
+              prev.map((r) => {
+                const q = parseNumericInput(stripHtml(String(r.qty || "")));
+                const p = parseNumericInput(stripHtml(String(r.price || "")));
+                return {
+                  ...r,
+                  amount: type === "challan" ? 0 : q * p,
+                };
+              })
+            );
+          }}
+          autoSaveEnabled={autoSaveEnabled}
+          onToggleAutoSave={(val) => {
+            setAutoSaveEnabled(val);
+            localStorage.setItem("comilla_autosave_enabled", String(val));
+          }}
+          lastSavedTime={lastSavedTime}
+          currentDocId={currentDocId}
+          currentDocName={savedDocs.find((d) => d.id === currentDocId)?.name}
+          onCloseCurrentDoc={resetSheetFields}
+          onNewDoc={startNewDoc}
+          onDuplicateDoc={currentDocId ? duplicateCurrentDoc : undefined}
+          onDeleteDoc={currentDocId ? () => deleteSavedDoc(currentDocId) : undefined}
+          onSaveDoc={() => saveCurrentDocToApp()}
+          saveStatus={saveStatus}
+          onOpenExcelModal={() => setIsExcelModalOpen(true)}
+          onExportExcel={handleDownloadExcel}
+          isGeneratingExcel={isGeneratingExcel}
+          onPrint={handlePrint}
+        />
       </div>
-
-      {/* Editing State Banner */}
-      {currentDocId && (
-        <div className="no-print print:hidden w-full max-w-[210mm] mb-2 px-3 sm:px-0 z-10 animate-in fade-in slide-in-from-top-2 duration-250">
-          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5 flex items-center justify-between text-xs text-indigo-950 shadow-sm">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="bg-indigo-600 text-white font-black text-[8px] px-1.5 py-0.5 rounded-sm uppercase tracking-wider shrink-0 shadow-xs">
-                Editing
-              </span>
-              <span className="font-bold text-slate-800 truncate text-[11px]" title={savedDocs.find(d => d.id === currentDocId)?.name || "Active Sheet"}>
-                {savedDocs.find(d => d.id === currentDocId)?.name || "Active Sheet"}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={resetSheetFields}
-              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100/50 px-2 py-1 rounded transition-all cursor-pointer uppercase tracking-wider shrink-0"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* A4 Standard-compliant visual grid container */}
       <div className="sheet relative w-full max-w-[210mm] min-h-[297mm] bg-white p-3 sm:p-[8mm] print:p-0 shadow-xl border border-slate-200/60 rounded-xs box-border z-10 mx-auto">
@@ -1815,29 +2084,29 @@ export default function QuotationBuilder() {
                   <div className="meta-box space-y-1 border border-black p-2 bg-slate-50/30 rounded-xs">
                     <div>
                       <label className="block text-[7pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Messers:</label>
-                      <input 
-                        type="text" 
+                      <RichTextCell
                         value={messers}
-                        onChange={(e) => setMessers(e.target.value)}
+                        onChange={(val) => setMessers(val)}
                         placeholder="Enter Client/Ship details"
-                        className="w-full border-b border-dotted border-slate-400 focus:border-black font-bold text-[9pt] outline-none bg-transparent py-0.5 no-print print:hidden"
+                        className="w-full border-b border-dotted border-slate-400 focus:border-black font-bold text-[9pt] outline-none bg-transparent py-0.5 no-print print:hidden min-h-[22px]"
                       />
-                      <div className="hidden print:block font-bold text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5 break-words whitespace-pre-wrap leading-tight">
-                        {messers || " "}
-                      </div>
+                      <div 
+                        className="hidden print:block font-bold text-[9pt] border-b border-dotted border-black min-h-[18px] py-0.5 break-words whitespace-pre-wrap leading-tight"
+                        dangerouslySetInnerHTML={{ __html: messers || "&nbsp;" }}
+                      />
                     </div>
                     <div>
                       <label className="block text-[7pt] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Address:</label>
-                      <textarea 
-                        rows={2}
+                      <RichTextCell
                         value={address}
-                        onChange={(e) => setAddress(e.target.value)}
+                        onChange={(val) => setAddress(val)}
                         placeholder="Enter delivery/billing address"
-                        className="w-full border-b border-dotted border-slate-400 focus:border-black text-[8.5pt] outline-none bg-transparent resize-none leading-tight py-0.5 no-print print:hidden"
+                        className="w-full border-b border-dotted border-slate-400 focus:border-black text-[8.5pt] outline-none bg-transparent leading-tight py-0.5 no-print print:hidden min-h-[36px]"
                       />
-                      <div className="hidden print:block text-[8.5pt] border-b border-dotted border-black min-h-[32px] py-0.5 break-words whitespace-pre-wrap leading-tight">
-                        {address || " "}
-                      </div>
+                      <div 
+                        className="hidden print:block text-[8.5pt] border-b border-dotted border-black min-h-[32px] py-0.5 break-words whitespace-pre-wrap leading-tight"
+                        dangerouslySetInnerHTML={{ __html: address || "&nbsp;" }}
+                      />
                     </div>
                   </div>
 
@@ -2061,6 +2330,7 @@ export default function QuotationBuilder() {
                                   key={colIndex}
                                   colSpan={colSpan}
                                   rowSpan={rowSpan}
+                                  style={getCellStyle(idx, -1)}
                                   onMouseDown={(e) => handleCellMouseDown(e, idx, -1)}
                                   onMouseEnter={() => handleCellMouseEnter(idx, -1)}
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, -1)}
@@ -2074,11 +2344,13 @@ export default function QuotationBuilder() {
                             }
 
                             if (colIndex === 0) {
+                              const cellStyle = getCellStyle(idx, 0);
                               return (
                                 <td
                                   key={colIndex}
                                   colSpan={colSpan}
                                   rowSpan={rowSpan}
+                                  style={cellStyle}
                                   onMouseDown={(e) => handleCellMouseDown(e, idx, 0)}
                                   onMouseEnter={() => handleCellMouseEnter(idx, 0)}
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, 0)}
@@ -2086,17 +2358,13 @@ export default function QuotationBuilder() {
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, 0)}
                                   className={getCellClassName(idx, 0, `border border-black text-left px-2 text-[8.5pt] align-top py-0.5 whitespace-normal transition-all cursor-text ${region ? "bg-amber-50/10" : ""}`)}
                                 >
-                                  <textarea
+                                  <RichTextCell
                                     value={row.desc}
                                     onFocus={() => {
                                       setSelectedRowIndex(idx);
                                       setSelectedCell({ rowIndex: idx, colIndex: 0 });
                                     }}
-                                    onChange={(e) => {
-                                      handleRowChange(idx, "desc", e.target.value);
-                                      e.target.style.height = "auto";
-                                      e.target.style.height = `${e.target.scrollHeight}px`;
-                                    }}
+                                    onChange={(val) => handleRowChange(idx, "desc", val)}
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter" && !e.shiftKey) {
                                         e.preventDefault();
@@ -2107,25 +2375,28 @@ export default function QuotationBuilder() {
                                       }
                                     }}
                                     onPaste={(e) => handlePaste(e, idx, 0)}
-                                    data-row={idx}
-                                    data-col={0}
-                                    rows={1}
-                                    style={{ height: "auto", resize: "none" }}
-                                    className={`w-full min-w-full text-left border-none outline-none bg-transparent p-0 text-slate-800 text-[8.5pt] leading-normal block overflow-hidden py-0.5 whitespace-normal break-words no-print print:hidden font-normal`}
+                                    dataRow={idx}
+                                    dataCol={0}
+                                    style={cellStyle}
+                                    className="w-full min-w-full text-left border-none outline-none bg-transparent p-0 text-slate-800 text-[8.5pt] leading-normal block overflow-hidden py-0.5 whitespace-normal break-words no-print print:hidden font-normal"
                                   />
-                                  <div className="hidden print:block whitespace-normal break-words text-left text-slate-900 leading-normal py-0.5 text-[8.5pt] font-normal">
-                                    {row.desc || " "}
-                                  </div>
+                                  <div 
+                                    style={cellStyle} 
+                                    className="hidden print:block whitespace-normal break-words text-left text-slate-900 leading-normal py-0.5 text-[8.5pt] font-normal"
+                                    dangerouslySetInnerHTML={{ __html: row.desc || "&nbsp;" }}
+                                  />
                                 </td>
                               );
                             }
 
                             if (colIndex === 1) {
+                              const cellStyle = getCellStyle(idx, 1);
                               return (
                                 <td
                                   key={colIndex}
                                   colSpan={colSpan}
                                   rowSpan={rowSpan}
+                                  style={cellStyle}
                                   onMouseDown={(e) => handleCellMouseDown(e, idx, 1)}
                                   onMouseEnter={() => handleCellMouseEnter(idx, 1)}
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, 1)}
@@ -2133,34 +2404,37 @@ export default function QuotationBuilder() {
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, 1)}
                                   className={getCellClassName(idx, 1, "border border-black text-center font-mono text-[8.5pt] align-top py-0.5 transition-all cursor-text")}
                                 >
-                                  <textarea
+                                  <RichTextCell
                                     value={row.qty}
                                     onFocus={() => {
                                       setSelectedRowIndex(idx);
                                       setSelectedCell({ rowIndex: idx, colIndex: 1 });
                                     }}
-                                    onChange={(e) => handleRowChange(idx, "qty", e.target.value)}
+                                    onChange={(val) => handleRowChange(idx, "qty", val)}
                                     onKeyDown={(e) => handleKeyDown(e, idx, 1)}
                                     onPaste={(e) => handlePaste(e, idx, 1)}
-                                    data-row={idx}
-                                    data-col={1}
-                                    rows={1}
-                                    style={{ height: "auto", resize: "none" }}
+                                    dataRow={idx}
+                                    dataCol={1}
+                                    style={cellStyle}
                                     className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-normal break-normal no-print print:hidden text-[8.5pt]"
                                   />
-                                  <div className="hidden print:block whitespace-normal break-normal text-center font-mono text-slate-900 py-0.5 text-[8.5pt]">
-                                    {row.qty || " "}
-                                  </div>
+                                  <div 
+                                    style={cellStyle} 
+                                    className="hidden print:block whitespace-normal break-normal text-center font-mono text-slate-900 py-0.5 text-[8.5pt]"
+                                    dangerouslySetInnerHTML={{ __html: row.qty || "&nbsp;" }}
+                                  />
                                 </td>
                               );
                             }
 
                             if (colIndex === 2) {
+                              const cellStyle = getCellStyle(idx, 2);
                               return (
                                 <td
                                   key={colIndex}
                                   colSpan={colSpan}
                                   rowSpan={rowSpan}
+                                  style={cellStyle}
                                   onMouseDown={(e) => handleCellMouseDown(e, idx, 2)}
                                   onMouseEnter={() => handleCellMouseEnter(idx, 2)}
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, 2)}
@@ -2168,34 +2442,37 @@ export default function QuotationBuilder() {
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, 2)}
                                   className={getCellClassName(idx, 2, "border border-black text-center text-[8.5pt] align-top py-0.5 transition-all cursor-text")}
                                 >
-                                  <textarea
+                                  <RichTextCell
                                     value={row.unit}
                                     onFocus={() => {
                                       setSelectedRowIndex(idx);
                                       setSelectedCell({ rowIndex: idx, colIndex: 2 });
                                     }}
-                                    onChange={(e) => handleRowChange(idx, "unit", e.target.value)}
+                                    onChange={(val) => handleRowChange(idx, "unit", val)}
                                     onKeyDown={(e) => handleKeyDown(e, idx, 2)}
                                     onPaste={(e) => handlePaste(e, idx, 2)}
-                                    data-row={idx}
-                                    data-col={2}
-                                    rows={1}
-                                    style={{ height: "auto", resize: "none" }}
+                                    dataRow={idx}
+                                    dataCol={2}
+                                    style={cellStyle}
                                     className="w-full text-center border-none outline-none bg-transparent px-0 text-slate-800 align-top overflow-hidden py-0.5 whitespace-normal break-normal no-print print:hidden text-[8.5pt]"
                                   />
-                                  <div className="hidden print:block whitespace-normal break-normal text-center text-slate-900 py-0.5 text-[8.5pt]">
-                                    {row.unit || " "}
-                                  </div>
+                                  <div 
+                                    style={cellStyle} 
+                                    className="hidden print:block whitespace-normal break-normal text-center text-slate-900 py-0.5 text-[8.5pt]"
+                                    dangerouslySetInnerHTML={{ __html: row.unit || "&nbsp;" }}
+                                  />
                                 </td>
                               );
                             }
 
                             if (colIndex === 3) {
+                              const cellStyle = getCellStyle(idx, 3);
                               return (
                                 <td
                                   key={colIndex}
                                   colSpan={colSpan}
                                   rowSpan={rowSpan}
+                                  style={cellStyle}
                                   onMouseDown={(e) => handleCellMouseDown(e, idx, 3)}
                                   onMouseEnter={() => handleCellMouseEnter(idx, 3)}
                                   onMouseUp={(e) => handleCellMouseUp(e, idx, 3)}
@@ -2203,42 +2480,45 @@ export default function QuotationBuilder() {
                                   onContextMenu={(e) => handleCellContextMenu(e, idx, 3)}
                                   className={getCellClassName(idx, 3, "border border-black text-center font-mono text-[8.5pt] align-top py-0.5 transition-all cursor-text")}
                                 >
-                                  <textarea
+                                  <RichTextCell
                                     value={row.price}
                                     onFocus={() => {
                                       setSelectedRowIndex(idx);
                                       setSelectedCell({ rowIndex: idx, colIndex: 3 });
                                     }}
-                                    onChange={(e) => handleRowChange(idx, "price", e.target.value)}
+                                    onChange={(val) => handleRowChange(idx, "price", val)}
                                     onKeyDown={(e) => handleKeyDown(e, idx, 3)}
                                     onPaste={(e) => handlePaste(e, idx, 3)}
-                                    data-row={idx}
-                                    data-col={3}
-                                    rows={1}
-                                    style={{ height: "auto", resize: "none" }}
+                                    dataRow={idx}
+                                    dataCol={3}
+                                    style={cellStyle}
                                     className="w-full text-center border-none outline-none bg-transparent px-0 font-mono text-slate-800 align-top overflow-hidden py-0.5 whitespace-normal break-normal no-print print:hidden text-[8.5pt]"
                                   />
-                                  <div className="hidden print:block whitespace-normal break-normal text-center font-mono text-slate-900 py-0.5 text-[8.5pt]">
-                                    {row.price || " "}
-                                  </div>
+                                  <div 
+                                    style={cellStyle} 
+                                    className="hidden print:block whitespace-normal break-normal text-center font-mono text-slate-900 py-0.5 text-[8.5pt]"
+                                    dangerouslySetInnerHTML={{ __html: row.price || "&nbsp;" }}
+                                  />
                                 </td>
                               );
                             }
 
+                            const cellStyle = getCellStyle(idx, 4);
                             return (
                               <td
                                 key={colIndex}
                                 colSpan={colSpan}
                                 rowSpan={rowSpan}
+                                style={cellStyle}
                                 onMouseDown={(e) => handleCellMouseDown(e, idx, 4)}
-                                  onMouseEnter={() => handleCellMouseEnter(idx, 4)}
-                                  onMouseUp={(e) => handleCellMouseUp(e, idx, 4)}
+                                onMouseEnter={() => handleCellMouseEnter(idx, 4)}
+                                onMouseUp={(e) => handleCellMouseUp(e, idx, 4)}
                                 onClick={() => handleCellClick(idx, 4)}
                                 onContextMenu={(e) => handleCellContextMenu(e, idx, 4)}
                                 className={getCellClassName(idx, 4, "border border-black text-right pr-2 font-mono text-[8.5pt] font-semibold text-slate-800 align-top py-0.5 transition-all cursor-pointer")}
                               >
-                                <div className="whitespace-normal break-all leading-tight text-[8.5pt]">
-                                  {row.amount > 0 ? row.amount.toLocaleString("en-US", { minimumFractionDigits: 2 }) : "0.00"}
+                                <div style={cellStyle} className="whitespace-normal break-all leading-tight text-[8.5pt]">
+                                  {row.amount !== 0 ? row.amount.toLocaleString("en-US", { minimumFractionDigits: 2 }) : "0.00"}
                                 </div>
                               </td>
                             );
@@ -2334,7 +2614,7 @@ export default function QuotationBuilder() {
                       Total: <strong className="text-slate-900">{rows.length}</strong> / 1000
                     </span>
                     <span className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-md font-mono text-[11px]">
-                      Filled: <strong>{rows.filter(r => r.desc.trim() || r.qty.trim() || r.unit.trim() || r.price.trim()).length}</strong>
+                      Filled: <strong>{rows.filter(r => String(r.desc || "").trim() || String(r.qty || "").trim() || String(r.unit || "").trim() || String(r.price || "").trim()).length}</strong>
                     </span>
                   </div>
                 </div>
@@ -2378,7 +2658,7 @@ export default function QuotationBuilder() {
                                           value={vatPercent}
                                           onChange={(e) => {
                                             const val = e.target.value;
-                                            if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                            if (val === "" || /^-?\d*[.,]?\d*$/.test(val)) {
                                               setVatPercent(val);
                                             }
                                           }}
@@ -2407,7 +2687,7 @@ export default function QuotationBuilder() {
                                           value={transportationFee}
                                           onChange={(e) => {
                                             const val = e.target.value;
-                                            if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                            if (val === "" || /^-?\d*[.,]?\d*$/.test(val)) {
                                               setTransportationFee(val);
                                             }
                                           }}

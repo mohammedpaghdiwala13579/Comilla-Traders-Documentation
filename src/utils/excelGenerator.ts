@@ -1,6 +1,8 @@
 import ExcelJS from "exceljs";
-import { QuotationRow, MergedRegion } from "../types";
+import { QuotationRow, MergedRegion, CellFormatMap, CellFormat } from "../types";
 import { numberToWords } from "./numberToWords";
+import { cleanCellText } from "./tsvParser";
+import { parseNumericInput } from "./textFormatter";
 
 const getBase64Image = async (url: string): Promise<{ base64: string; ext: string } | null> => {
   try {
@@ -185,7 +187,8 @@ const buildDocumentWorksheet = (
   pageIndex: number = 1,
   totalPages: number = 1,
   isLastPage: boolean = true,
-  allDocumentRows: QuotationRow[] = []
+  allDocumentRows: QuotationRow[] = [],
+  cellFormats?: CellFormatMap
 ) => {
   // Page Setup: Fit to 1 Page Wide and 1 Page Tall on standard A4 portrait
   worksheet.pageSetup = {
@@ -262,7 +265,7 @@ const buildDocumentWorksheet = (
 
   worksheet.mergeCells("A13:B13");
   const messersCell = worksheet.getCell("A13");
-  messersCell.value = messers || "";
+  messersCell.value = cleanCellText(messers || "");
   messersCell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "000000" } };
   messersCell.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
 
@@ -272,7 +275,7 @@ const buildDocumentWorksheet = (
 
   worksheet.mergeCells("A15:B16");
   const addrCell = worksheet.getCell("A15");
-  addrCell.value = address || "";
+  addrCell.value = cleanCellText(address || "");
   addrCell.font = { name: "Arial", size: 8, color: { argb: "000000" } };
   addrCell.alignment = { vertical: "top", wrapText: true };
   addrCell.border = { bottom: { style: "dotted", color: { argb: "64748B" } } };
@@ -454,25 +457,69 @@ const buildDocumentWorksheet = (
     const rowData = pageRows[idx];
 
     const slVal = startSlIndex + idx;
-    const descVal = rowData ? rowData.desc : "";
-    const qtyVal = rowData && rowData.qty ? parseFloat(String(rowData.qty).replace(/,/g, "")) : "";
-    const unitVal = rowData ? rowData.unit : "";
+    const descVal = rowData ? cleanCellText(rowData.desc) : "";
+    const cleanQtyStr = rowData && rowData.qty ? cleanCellText(rowData.qty) : "";
+    const qtyVal = cleanQtyStr ? parseNumericInput(cleanQtyStr) : "";
+    const unitVal = rowData ? cleanCellText(rowData.unit) : "";
 
     // Dynamic compact row height based strictly on actual visual lines
     const visualLines = calculateItemVisualLines(descVal, isChallan);
     r.height = getItemRowHeight(visualLines);
+
+    // Helper to apply custom CellFormat to ExcelJS cell
+    const applyCellFormatToExcel = (cell: ExcelJS.Cell, rIndex: number, cIndex: number, defaultAlign: "left" | "center" | "right") => {
+      const key = `${rIndex}_${cIndex}`;
+      const fmt = cellFormats ? cellFormats[key] : undefined;
+      if (!fmt) return;
+
+      const fontObj: Partial<ExcelJS.Font> = { ...cell.font };
+      if (fmt.fontFamily) fontObj.name = fmt.fontFamily;
+      if (fmt.fontSize) fontObj.size = Math.round(fmt.fontSize * 0.75) || 8;
+      if (fmt.bold !== undefined) fontObj.bold = fmt.bold;
+      if (fmt.italic !== undefined) fontObj.italic = fmt.italic;
+      if (fmt.underline) {
+        fontObj.underline = fmt.underline === "double" ? "double" : fmt.underline === "single" ? true : false;
+      }
+      if (fmt.color) {
+        fontObj.color = { argb: fmt.color.replace("#", "") };
+      }
+      cell.font = fontObj;
+
+      const alignObj: Partial<ExcelJS.Alignment> = { ...cell.alignment };
+      if (fmt.align) alignObj.horizontal = fmt.align;
+      if (fmt.valign) alignObj.vertical = fmt.valign === "top" ? "top" : fmt.valign === "middle" ? "middle" : "bottom";
+      if (fmt.indent) alignObj.indent = fmt.indent;
+      if (fmt.orientation) {
+        if (fmt.orientation === "angle-up") alignObj.textRotation = 45;
+        else if (fmt.orientation === "angle-down") alignObj.textRotation = -45;
+        else if (fmt.orientation === "vertical") alignObj.textRotation = 255;
+        else if (fmt.orientation === "rotate-up") alignObj.textRotation = 90;
+        else if (fmt.orientation === "rotate-down") alignObj.textRotation = -90;
+      }
+      cell.alignment = alignObj;
+
+      if (fmt.bgColor && fmt.bgColor !== "transparent") {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: fmt.bgColor.replace("#", "") },
+        };
+      }
+    };
 
     // Set SL
     const cellSL = r.getCell(1);
     cellSL.value = rowData ? slVal : "";
     cellSL.alignment = { vertical: "middle", horizontal: "center" };
     cellSL.font = { name: "Arial", size: 8 };
+    applyCellFormatToExcel(cellSL, startSlIndex - 1 + idx, -1, "center");
 
     // Set Description
     const cellDesc = r.getCell(2);
     cellDesc.value = descVal;
     cellDesc.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
     cellDesc.font = { name: "Arial", size: 8 };
+    applyCellFormatToExcel(cellDesc, startSlIndex - 1 + idx, 0, "left");
 
     // Set Qty
     const cellQty = r.getCell(3);
@@ -482,12 +529,14 @@ const buildDocumentWorksheet = (
     if (typeof qtyVal === "number" && !isNaN(qtyVal)) {
       cellQty.numFmt = "#,##0.00";
     }
+    applyCellFormatToExcel(cellQty, startSlIndex - 1 + idx, 1, "center");
 
     // Set Unit
     const cellUnit = r.getCell(4);
     cellUnit.value = unitVal;
     cellUnit.alignment = { vertical: "middle", horizontal: "center" };
     cellUnit.font = { name: "Arial", size: 8 };
+    applyCellFormatToExcel(cellUnit, startSlIndex - 1 + idx, 2, "center");
 
     // Solid Table Cell Borders
     for (let col = 1; col <= totalCols; col++) {
@@ -502,7 +551,8 @@ const buildDocumentWorksheet = (
 
     // Set Price & Amount for Quotation / Invoice
     if (!isChallan) {
-      const priceVal = rowData && rowData.price ? parseFloat(String(rowData.price).replace(/,/g, "")) : "";
+      const cleanPriceStr = rowData && rowData.price ? cleanCellText(rowData.price) : "";
+      const priceVal = cleanPriceStr ? parseNumericInput(cleanPriceStr) : "";
 
       const cellPrice = r.getCell(5);
       cellPrice.value = priceVal === "" || isNaN(priceVal) ? (rowData?.price || "") : priceVal;
@@ -511,6 +561,7 @@ const buildDocumentWorksheet = (
       if (typeof priceVal === "number" && !isNaN(priceVal)) {
         cellPrice.numFmt = "#,##0.00";
       }
+      applyCellFormatToExcel(cellPrice, startSlIndex - 1 + idx, 3, "right");
 
       const cellAmount = r.getCell(6);
       if (rowData && (rowData.desc.trim() || rowData.qty.trim() || rowData.price.trim())) {
@@ -523,6 +574,7 @@ const buildDocumentWorksheet = (
       cellAmount.alignment = { vertical: "middle", horizontal: "right" };
       cellAmount.font = { name: "Arial", size: 8 };
       cellAmount.numFmt = "#,##0.00";
+      applyCellFormatToExcel(cellAmount, startSlIndex - 1 + idx, 4, "right");
     }
 
     currentRowNum++;
@@ -774,7 +826,8 @@ export const generateExcelWorkbook = async (
   invoiceNo?: string,
   poNumber?: string,
   vatPercent?: number,
-  transportationFee?: number
+  transportationFee?: number,
+  cellFormats?: CellFormatMap
 ): Promise<ExcelJS.Workbook> => {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Comilla Traders";
@@ -856,7 +909,8 @@ export const generateExcelWorkbook = async (
       pageNumber,
       totalPages,
       chunk.isLastPage,
-      effectiveRows
+      effectiveRows,
+      cellFormats
     );
   });
 

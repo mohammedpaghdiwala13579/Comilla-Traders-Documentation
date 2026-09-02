@@ -242,12 +242,15 @@ export default function SavedDocumentsPanel({
               <tbody className="divide-y divide-slate-100 bg-white">
                 {filteredDocs.map((doc) => {
                   const isActive = currentDocId === doc.id;
-                  const docRowsTotal = doc.rows.reduce((sum: number, r: any) => sum + r.amount, 0);
+                  const docRowsTotal = doc.rows.reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0);
+                  const vat = doc.docType === "invoice" ? (docRowsTotal * (Number(doc.vatPercent) || 0)) / 100 : 0;
+                  const trans = doc.docType === "invoice" ? (Number(doc.transportationFee) || 0) : 0;
+                  const grand = docRowsTotal + vat + trans;
                   
                   // For Challan, grand total is shown as "—"
                   const displayTotal = doc.docType === "challan"
                     ? "—"
-                    : docRowsTotal.toLocaleString("en-US", { minimumFractionDigits: 2 });
+                    : grand.toLocaleString("en-US", { minimumFractionDigits: 2 });
                   
                   return (
                     <tr 

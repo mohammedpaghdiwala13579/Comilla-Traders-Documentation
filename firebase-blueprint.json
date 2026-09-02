@@ -17,9 +17,10 @@
         "requisitionNo": { "type": "string" },
         "poNumber": { "type": "string" },
         "vatPercent": { "type": "number" },
-        "transportation": { "type": "number" },
+        "transportationFee": { "type": "number" },
         "rows": { "type": "array" },
-        "mergedRegions": { "type": "array" }
+        "mergedRegions": { "type": "array" },
+        "cellFormats": { "type": "object" }
       },
       "required": ["name", "createdAt", "updatedAt", "docType", "rows"]
     }

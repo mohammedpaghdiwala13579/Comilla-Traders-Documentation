@@ -136,11 +136,22 @@ export type InlineFormatType =
  */
 export function applyInlineFormatting(
   type: InlineFormatType,
-  value?: string | number
+  value?: string | number,
+  targetRange?: Range | null
 ): boolean {
   if (typeof window === "undefined") return false;
 
   let sel = window.getSelection();
+
+  // If a specific targetRange was supplied, restore it into the selection
+  if (targetRange) {
+    if (sel) {
+      try {
+        sel.removeAllRanges();
+        sel.addRange(targetRange);
+      } catch (e) {}
+    }
+  }
 
   // If selection is absent or outside an editable container, attempt to restore saved selection
   const isCurrentlyInEditable = () => {
@@ -159,7 +170,7 @@ export function applyInlineFormatting(
     return false;
   }
 
-  let range = sel.getRangeAt(0);
+  let range = targetRange || sel.getRangeAt(0);
   const commonAncestor = range.commonAncestorContainer;
   const editableElement = commonAncestor instanceof HTMLElement
     ? commonAncestor.closest<HTMLElement>("[contenteditable='true']")
@@ -197,11 +208,24 @@ export function applyInlineFormatting(
     
     if (isTransparent) {
       // Remove highlight from the selected word / range
+      try {
+        document.execCommand("hiliteColor", false, "transparent");
+      } catch (e) {}
+      try {
+        document.execCommand("backColor", false, "transparent");
+      } catch (e) {}
       removeStyleFromRange(range, editableElement, "backgroundColor");
     } else {
       const colorVal = String(value);
-      // Modern browsers: backColor produces <span style="background-color: ...">
-      const ok = document.execCommand("backColor", false, colorVal);
+      let ok = false;
+      try {
+        ok = document.execCommand("hiliteColor", false, colorVal);
+      } catch (e) {}
+      if (!ok) {
+        try {
+          ok = document.execCommand("backColor", false, colorVal);
+        } catch (e) {}
+      }
       if (!ok) {
         wrapRangeWithStyle(range, { backgroundColor: colorVal });
       }
@@ -212,10 +236,16 @@ export function applyInlineFormatting(
   else if (normalizedType === "fontColor") {
     const isDefault = !value || value === "inherit" || value === "automatic" || value === "auto" || value === "#000000";
     if (isDefault) {
+      try {
+        document.execCommand("foreColor", false, "#000000");
+      } catch (e) {}
       removeStyleFromRange(range, editableElement, "color");
     } else {
       const colorVal = String(value);
-      const ok = document.execCommand("foreColor", false, colorVal);
+      let ok = false;
+      try {
+        ok = document.execCommand("foreColor", false, colorVal);
+      } catch (e) {}
       if (!ok) {
         wrapRangeWithStyle(range, { color: colorVal });
       }

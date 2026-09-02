@@ -12,6 +12,7 @@ import SavedDocumentsPanel from "./SavedDocumentsPanel";
 import ExcelPasteModal from "./ExcelPasteModal";
 import ExcelRibbonToolbar from "./ExcelRibbonToolbar";
 import RichTextCell from "./RichTextCell";
+import FloatingTextToolbar from "./FloatingTextToolbar";
 import { stripHtml, parseNumericInput } from "../utils/textFormatter";
 
 enum OperationType {
@@ -2962,6 +2963,9 @@ export default function QuotationBuilder() {
         totalCurrentRows={rows.length}
         docType={docType}
       />
+
+      {/* Floating Selection Formatting Toolbar */}
+      <FloatingTextToolbar />
 
       {/* Floating Status Toast */}
       {toastMessage && (
